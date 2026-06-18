@@ -1,4 +1,8 @@
+import 'dart:io' as io;
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:path/path.dart' as p;
 import '../models/novel.dart';
 import '../models/chapter.dart';
@@ -14,6 +18,21 @@ class DatabaseService {
   }
 
   static Future<Database> _initDatabase() async {
+    if (kIsWeb) {
+      return await databaseFactoryFfiWeb.openDatabase(
+        'novelshift.db',
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: _onCreate,
+        ),
+      );
+    }
+
+    if (!kIsWeb && (io.Platform.isWindows || io.Platform.isLinux || io.Platform.isMacOS)) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+
     final dbPath = await getDatabasesPath();
     final path = p.join(dbPath, 'novelshift.db');
 

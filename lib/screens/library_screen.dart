@@ -65,18 +65,24 @@ class LibraryScreen extends ConsumerWidget {
             ),
             error: (error, _) => SliverFillRemaining(
               child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.error_outline, size: 48,
-                        color: theme.colorScheme.error),
-                    const SizedBox(height: 16),
-                    Text('Failed to load library',
-                        style: theme.textTheme.titleMedium),
-                    const SizedBox(height: 8),
-                    Text(error.toString(),
-                        style: theme.textTheme.bodyMedium),
-                  ],
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.error_outline, size: 48,
+                            color: theme.colorScheme.error),
+                        const SizedBox(height: 16),
+                        Text('Failed to load library',
+                            style: theme.textTheme.titleMedium),
+                        const SizedBox(height: 8),
+                        Text(error.toString(),
+                            style: theme.textTheme.bodyMedium,
+                            textAlign: TextAlign.center),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
