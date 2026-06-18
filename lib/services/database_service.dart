@@ -19,7 +19,7 @@ class DatabaseService {
 
   static Future<Database> _initDatabase() async {
     if (kIsWeb) {
-      return await databaseFactoryFfiWeb.openDatabase(
+      return await databaseFactoryFfiWebNoWebWorker.openDatabase(
         'novelshift.db',
         options: OpenDatabaseOptions(
           version: 1,
