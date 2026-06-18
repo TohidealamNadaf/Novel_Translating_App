@@ -36,7 +36,7 @@ class GlossaryTile extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: typeColor.withValues(alpha: 0.15),
+                    color: typeColor.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -90,7 +90,6 @@ class GlossaryTile extends StatelessWidget {
                   Switch(
                     value: entry.isActive,
                     onChanged: (_) => onToggle!(),
-                    activeThumbColor: theme.colorScheme.primary,
                   ),
                 // Delete button
                 if (onDelete != null)

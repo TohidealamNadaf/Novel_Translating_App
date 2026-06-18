@@ -118,7 +118,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: defaultModel.provider,
+            value: defaultModel.provider,
             decoration: const InputDecoration(
               labelText: 'Provider',
               prefixIcon: Icon(Icons.cloud_outlined),
@@ -137,7 +137,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
-            initialValue: defaultModel.model,
+            value: defaultModel.model,
             decoration: const InputDecoration(
               labelText: 'Model',
               prefixIcon: Icon(Icons.model_training),
@@ -204,7 +204,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             value: fontSettings.useSerif,
             onChanged: (v) =>
                 ref.read(fontSettingsProvider.notifier).setUseSerif(v),
-            activeThumbColor: theme.colorScheme.primary,
           ),
 
           const SizedBox(height: 40),
@@ -275,7 +274,7 @@ class _SectionHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: AppTheme.brandPrimary.withValues(alpha: 0.1),
+            color: AppTheme.brandPrimary.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: AppTheme.brandPrimary, size: 20),

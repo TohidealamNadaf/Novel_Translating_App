@@ -64,12 +64,12 @@ class AppTheme {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
-      cardTheme: CardThemeData(
+      cardTheme: const CardTheme(
         color: darkCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: darkBorder, width: 1),
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+          side: BorderSide(color: darkBorder, width: 1),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -147,12 +147,12 @@ class AppTheme {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
-      cardTheme: CardThemeData(
+      cardTheme: const CardTheme(
         color: sepiaCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: sepiaBorder, width: 1),
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+          side: BorderSide(color: sepiaBorder, width: 1),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -225,12 +225,12 @@ class AppTheme {
         elevation: 0,
         surfaceTintColor: Colors.transparent,
       ),
-      cardTheme: CardThemeData(
+      cardTheme: const CardTheme(
         color: lightCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: lightBorder, width: 1),
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+          side: BorderSide(color: lightBorder, width: 1),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

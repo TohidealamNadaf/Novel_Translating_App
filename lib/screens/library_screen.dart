@@ -97,7 +97,7 @@ class LibraryScreen extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.all(24),
                           decoration: BoxDecoration(
-                            color: AppTheme.brandPrimary.withValues(alpha: 0.1),
+                            color: AppTheme.brandPrimary.withOpacity(0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -182,8 +182,8 @@ class _NovelCard extends ConsumerWidget {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        AppTheme.brandPrimary.withValues(alpha: 0.7),
-                        AppTheme.brandSecondary.withValues(alpha: 0.7),
+                        AppTheme.brandPrimary.withOpacity(0.7),
+                        AppTheme.brandSecondary.withOpacity(0.7),
                       ],
                     ),
                   ),
@@ -248,7 +248,7 @@ class _NovelCard extends ConsumerWidget {
                   icon: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppTheme.brandPrimary.withValues(alpha: 0.1),
+                      color: AppTheme.brandPrimary.withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -295,7 +295,7 @@ class _LanguageBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
+        color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(

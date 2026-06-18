@@ -35,7 +35,7 @@ class AppDefaults {
   static const Duration autoSaveInterval = Duration(seconds: 30);
   static const String userAgent =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36';
-  static const String corsProxy = 'https://corsproxy.io/?';
+  static const String corsProxy = 'https://api.allorigins.win/raw?url=';
 }
 
 class SecureStorageKeys {

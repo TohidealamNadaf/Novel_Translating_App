@@ -37,13 +37,13 @@ class ReadingThemeToggle extends StatelessWidget {
                 border: Border.all(
                   color: isSelected
                       ? AppTheme.brandPrimary
-                      : Colors.grey.withValues(alpha: 0.3),
+                      : Colors.grey.withOpacity(0.3),
                   width: isSelected ? 3 : 1,
                 ),
                 boxShadow: isSelected
                     ? [
                         BoxShadow(
-                          color: AppTheme.brandPrimary.withValues(alpha: 0.3),
+                          color: AppTheme.brandPrimary.withOpacity(0.3),
                           blurRadius: 8,
                           spreadRadius: 1,
                         )

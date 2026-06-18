@@ -230,45 +230,7 @@ class _GlossaryScreenState extends ConsumerState<GlossaryScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: type,
-                  decoration: const InputDecoration(labelText: 'Type'),
-                  items: ['character', 'place', 'technique', 'title', 'item', 'term']
-                      .map((t) => DropdownMenuItem(
-                            value: t,
-                            child: Text(
-                                t[0].toUpperCase() + t.substring(1)),
-                          ))
-                      .toList(),
-                  onChanged: (v) =>
-                      setDialogState(() => type = v ?? 'term'),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String?>(
-                  initialValue: gender,
-                  decoration:
-                      const InputDecoration(labelText: 'Gender (optional)'),
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('None')),
-                    DropdownMenuItem(value: 'male', child: Text('Male')),
-                    DropdownMenuItem(value: 'female', child: Text('Female')),
-                    DropdownMenuItem(
-                        value: 'neutral', child: Text('Neutral')),
-                  ],
-                  onChanged: (v) => setDialogState(() => gender = v),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (originalController.text.trim().isNotEmpty &&
-                    translatedController.text.trim().isNotEmpty) {
-                  ref
+                  value: type,
                       .read(glossaryProvider(widget.novelId).notifier)
                       .addEntry(GlossaryEntry(
                         novelId: widget.novelId,
@@ -318,7 +280,7 @@ class _GlossaryScreenState extends ConsumerState<GlossaryScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  initialValue: type,
+                  value: type,
                   decoration: const InputDecoration(labelText: 'Type'),
                   items: ['character', 'place', 'technique', 'title', 'item', 'term']
                       .map((t) => DropdownMenuItem(
@@ -332,7 +294,7 @@ class _GlossaryScreenState extends ConsumerState<GlossaryScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
-                  initialValue: gender,
+                  value: gender,
                   decoration:
                       const InputDecoration(labelText: 'Gender (optional)'),
                   items: const [
@@ -509,7 +471,7 @@ class _FilterChip extends StatelessWidget {
         label: Text(label),
         selected: selected,
         onSelected: (_) => onTap(),
-        selectedColor: AppTheme.brandPrimary.withValues(alpha: 0.2),
+        selectedColor: AppTheme.brandPrimary.withOpacity(0.2),
         checkmarkColor: AppTheme.brandPrimary,
         showCheckmark: selected,
       ),

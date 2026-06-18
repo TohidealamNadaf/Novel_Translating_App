@@ -82,8 +82,8 @@ class _NovelDetailScreenState extends ConsumerState<NovelDetailScreen> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      AppTheme.brandPrimary.withValues(alpha: 0.8),
-                      AppTheme.brandSecondary.withValues(alpha: 0.6),
+                      AppTheme.brandPrimary.withOpacity(0.8),
+                      AppTheme.brandSecondary.withOpacity(0.6),
                     ],
                   ),
                 ),
@@ -237,7 +237,7 @@ class _NovelDetailScreenState extends ConsumerState<NovelDetailScreen> {
                           width: 36,
                           height: 36,
                           decoration: BoxDecoration(
-                            color: AppTheme.brandPrimary.withValues(alpha: 0.1),
+                            color: AppTheme.brandPrimary.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(

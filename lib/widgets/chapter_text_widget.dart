@@ -50,7 +50,7 @@ class ChapterTextWidget extends StatelessWidget {
                 ? BoxDecoration(
                     border: Border(
                       left: BorderSide(
-                        color: AppTheme.brandPrimary.withValues(alpha: 0.5),
+                        color: AppTheme.brandPrimary.withOpacity(0.5),
                         width: 3,
                       ),
                     ),

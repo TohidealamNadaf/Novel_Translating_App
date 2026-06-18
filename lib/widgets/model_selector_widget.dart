@@ -26,7 +26,7 @@ class ModelSelectorWidget extends StatelessWidget {
         Text('AI Provider', style: theme.textTheme.labelLarge),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: selectedProvider,
+          value: selectedProvider,
           decoration: const InputDecoration(
             prefixIcon: Icon(Icons.smart_toy_outlined),
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -45,7 +45,7 @@ class ModelSelectorWidget extends StatelessWidget {
         Text('Model', style: theme.textTheme.labelLarge),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          initialValue: models.contains(selectedModel) ? selectedModel : models.first,
+          value: models.contains(selectedModel) ? selectedModel : models.first,
           decoration: const InputDecoration(
             prefixIcon: Icon(Icons.model_training),
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),

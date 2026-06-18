@@ -148,9 +148,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.95),
+        color: theme.colorScheme.surface.withOpacity(0.95),
         border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+          bottom: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
         ),
       ),
       child: Row(
@@ -199,7 +199,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         color: theme.colorScheme.surface,
         border: Border(
           bottom: BorderSide(
-              color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+              color: theme.colorScheme.outline.withOpacity(0.2)),
         ),
       ),
       child: Column(
@@ -272,7 +272,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 child: LinearProgressIndicator(
                   value: state.currentChunk / state.totalChunks,
                   backgroundColor:
-                      theme.colorScheme.outline.withValues(alpha: 0.2),
+                      theme.colorScheme.outline.withOpacity(0.2),
                 ),
               ),
               const SizedBox(height: 4),
@@ -366,7 +366,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               margin: const EdgeInsets.only(bottom: 16),
               decoration: BoxDecoration(
-                color: AppTheme.brandAccent.withValues(alpha: 0.1),
+                color: AppTheme.brandAccent.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Row(
@@ -407,14 +407,14 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withValues(alpha: 0.95),
+        color: theme.colorScheme.surface.withOpacity(0.95),
         border: Border(
           top: BorderSide(
-              color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+              color: theme.colorScheme.outline.withOpacity(0.2)),
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),

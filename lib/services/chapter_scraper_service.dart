@@ -212,7 +212,13 @@ class ChapterScraperService {
       throw Exception('Failed to fetch page: HTTP ${response.statusCode}');
     }
 
-    return response.body;
+    // Check if proxy returned an error JSON instead of HTML
+    final bodyStr = response.body;
+    if (bodyStr.trim().startsWith('{')) {
+      throw Exception('CORS Proxy Error or blocked: $bodyStr');
+    }
+
+    return bodyStr;
   }
 
   /// Find matching site profile
