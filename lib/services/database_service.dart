@@ -2,11 +2,11 @@ import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'package:path/path.dart' as p;
 import '../models/novel.dart';
 import '../models/chapter.dart';
 import '../models/glossary_entry.dart';
+import 'web_storage_service.dart';
 
 class DatabaseService {
   static Database? _database;
@@ -19,13 +19,7 @@ class DatabaseService {
 
   static Future<Database> _initDatabase() async {
     if (kIsWeb) {
-      return await databaseFactoryFfiWebNoWebWorker.openDatabase(
-        'novelshift.db',
-        options: OpenDatabaseOptions(
-          version: 1,
-          onCreate: _onCreate,
-        ),
-      );
+      throw UnsupportedError('SQLite is not supported on Web in this build. We use WebStorageService instead.');
     }
 
     if (!kIsWeb && (io.Platform.isWindows || io.Platform.isLinux || io.Platform.isMacOS)) {
@@ -102,12 +96,14 @@ class DatabaseService {
   // ─── Novel CRUD ───
 
   static Future<List<Novel>> getAllNovels() async {
+    if (kIsWeb) return await WebStorageService.getAllNovels();
     final db = await database;
     final maps = await db.query('novels', orderBy: 'lastReadAt DESC');
     return maps.map((m) => Novel.fromMap(m)).toList();
   }
 
   static Future<Novel?> getNovel(String id) async {
+    if (kIsWeb) return await WebStorageService.getNovel(id);
     final db = await database;
     final maps = await db.query('novels', where: 'id = ?', whereArgs: [id]);
     if (maps.isEmpty) return null;
@@ -115,18 +111,21 @@ class DatabaseService {
   }
 
   static Future<void> insertNovel(Novel novel) async {
+    if (kIsWeb) return await WebStorageService.insertNovel(novel);
     final db = await database;
     await db.insert('novels', novel.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   static Future<void> updateNovel(Novel novel) async {
+    if (kIsWeb) return await WebStorageService.updateNovel(novel);
     final db = await database;
     await db.update('novels', novel.toMap(),
         where: 'id = ?', whereArgs: [novel.id]);
   }
 
   static Future<void> deleteNovel(String id) async {
+    if (kIsWeb) return await WebStorageService.deleteNovel(id);
     final db = await database;
     await db.delete('glossary', where: 'novelId = ?', whereArgs: [id]);
     await db.delete('chapters', where: 'novelId = ?', whereArgs: [id]);
@@ -136,6 +135,7 @@ class DatabaseService {
   // ─── Chapter CRUD ───
 
   static Future<List<Chapter>> getChaptersForNovel(String novelId) async {
+    if (kIsWeb) return await WebStorageService.getChaptersForNovel(novelId);
     final db = await database;
     final maps = await db.query('chapters',
         where: 'novelId = ?',
@@ -146,6 +146,7 @@ class DatabaseService {
 
   static Future<Chapter?> getChapterByUrl(
       String novelId, String url) async {
+    if (kIsWeb) return await WebStorageService.getChapterByUrl(novelId, url);
     final db = await database;
     final maps = await db.query('chapters',
         where: 'novelId = ? AND url = ?', whereArgs: [novelId, url]);
@@ -154,12 +155,14 @@ class DatabaseService {
   }
 
   static Future<void> insertChapter(Chapter chapter) async {
+    if (kIsWeb) return await WebStorageService.insertChapter(chapter);
     final db = await database;
     await db.insert('chapters', chapter.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   static Future<void> updateChapter(Chapter chapter) async {
+    if (kIsWeb) return await WebStorageService.updateChapter(chapter);
     final db = await database;
     await db.update('chapters', chapter.toMap(),
         where: 'id = ?', whereArgs: [chapter.id]);
@@ -169,6 +172,7 @@ class DatabaseService {
 
   static Future<List<GlossaryEntry>> getGlossaryForNovel(
       String novelId) async {
+    if (kIsWeb) return await WebStorageService.getGlossaryForNovel(novelId);
     final db = await database;
     final maps = await db.query('glossary',
         where: 'novelId = ?',
@@ -179,6 +183,7 @@ class DatabaseService {
 
   static Future<List<GlossaryEntry>> getActiveGlossaryForNovel(
       String novelId) async {
+    if (kIsWeb) return await WebStorageService.getActiveGlossaryForNovel(novelId);
     final db = await database;
     final maps = await db.query('glossary',
         where: 'novelId = ? AND isActive = 1',
@@ -188,24 +193,28 @@ class DatabaseService {
   }
 
   static Future<void> insertGlossaryEntry(GlossaryEntry entry) async {
+    if (kIsWeb) return await WebStorageService.insertGlossaryEntry(entry);
     final db = await database;
     await db.insert('glossary', entry.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   static Future<void> updateGlossaryEntry(GlossaryEntry entry) async {
+    if (kIsWeb) return await WebStorageService.updateGlossaryEntry(entry);
     final db = await database;
     await db.update('glossary', entry.toMap(),
         where: 'id = ?', whereArgs: [entry.id]);
   }
 
   static Future<void> deleteGlossaryEntry(String id) async {
+    if (kIsWeb) return await WebStorageService.deleteGlossaryEntry(id);
     final db = await database;
     await db.delete('glossary', where: 'id = ?', whereArgs: [id]);
   }
 
   static Future<void> insertGlossaryEntries(
       List<GlossaryEntry> entries) async {
+    if (kIsWeb) return await WebStorageService.insertGlossaryEntries(entries);
     final db = await database;
     final batch = db.batch();
     for (final entry in entries) {
