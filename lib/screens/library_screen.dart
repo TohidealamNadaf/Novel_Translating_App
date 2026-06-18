@@ -16,37 +16,35 @@ class LibraryScreen extends ConsumerWidget {
 
     return Scaffold(
       body: CustomScrollView(
+        physics: novelsAsync.valueOrNull?.isEmpty == true 
+            ? const NeverScrollableScrollPhysics() 
+            : const AlwaysScrollableScrollPhysics(),
         slivers: [
           // ─── App Bar ───
           SliverAppBar(
-            expandedHeight: 120,
             floating: true,
             pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              titlePadding:
-                  const EdgeInsets.only(left: 20, bottom: 16),
-              title: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.brandPrimary, AppTheme.brandSecondary],
-                      ),
-                      borderRadius: BorderRadius.circular(8),
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppTheme.brandPrimary, AppTheme.brandSecondary],
                     ),
-                    child: const Icon(Icons.auto_stories, size: 18, color: Colors.white),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: 10),
-                  Text(
-                    'NovelShift',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                  child: const Icon(Icons.auto_stories, size: 18, color: Colors.white),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'NovelShift',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             actions: [
               IconButton(
@@ -61,9 +59,11 @@ class LibraryScreen extends ConsumerWidget {
           // ─── Content ───
           novelsAsync.when(
             loading: () => const SliverFillRemaining(
+              hasScrollBody: false,
               child: Center(child: CircularProgressIndicator()),
             ),
             error: (error, _) => SliverFillRemaining(
+              hasScrollBody: false,
               child: Center(
                 child: SingleChildScrollView(
                   child: Padding(
@@ -89,6 +89,7 @@ class LibraryScreen extends ConsumerWidget {
             data: (novels) {
               if (novels.isEmpty) {
                 return SliverFillRemaining(
+                  hasScrollBody: false,
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
