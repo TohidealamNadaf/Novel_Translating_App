@@ -103,6 +103,12 @@ class AIProviderService {
           'temperature': 0.3,
           'maxOutputTokens': 8000,
         },
+        'safetySettings': [
+          {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_NONE'},
+          {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_NONE'},
+          {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_NONE'},
+          {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_NONE'}
+        ]
       });
 
       final response = await _postWithRetry(
@@ -117,8 +123,14 @@ class AIProviderService {
             'Gemini error ${response.statusCode}: ${data['error']?['message'] ?? response.body}');
       }
 
-      final content =
-          data['candidates'][0]['content']['parts'][0]['text'] as String;
+      final candidate = data['candidates'][0];
+      
+      if (candidate['content'] == null) {
+        final finishReason = candidate['finishReason'] ?? 'UNKNOWN';
+        throw Exception('Gemini blocked generation. Reason: $finishReason');
+      }
+
+      final content = candidate['content']['parts'][0]['text'] as String;
       final tokens = data['usageMetadata']?['totalTokenCount'] as int? ?? 0;
 
       return _parseResult(content, tokens);
