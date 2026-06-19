@@ -82,7 +82,7 @@ class AppTheme {
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: const CardTheme(
         color: darkCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -172,7 +172,7 @@ class AppTheme {
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: const CardTheme(
         color: oledCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -262,7 +262,7 @@ class AppTheme {
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: const CardTheme(
         color: sepiaCard,
         elevation: 0,
         shape: RoundedRectangleBorder(
@@ -349,7 +349,7 @@ class AppTheme {
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ),
-      cardTheme: const CardThemeData(
+      cardTheme: const CardTheme(
         color: lightCard,
         elevation: 0,
         shape: RoundedRectangleBorder(

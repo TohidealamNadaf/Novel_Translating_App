@@ -345,14 +345,24 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
     }
   }
 
-  void _addNovelFromUrl() {
+  Future<void> _addNovelFromUrl() async {
     final url = _urlController.text.trim();
     final title =
         _titleController.text.trim().isEmpty ? 'Untitled Novel' : _titleController.text.trim();
     final cover = _coverController.text.trim();
 
     // Check API key
-    if (!ref.read(apiKeyProvider.notifier).hasKey(_selectedProvider)) {
+    final keys = ref.read(apiKeyProvider);
+    String? apiKey = keys[_selectedProvider];
+
+    if (apiKey == null || apiKey.isEmpty) {
+      apiKey = await const FlutterSecureStorage()
+          .read(key: SecureStorageKeys.keyForProvider(_selectedProvider));
+    }
+
+    if (!mounted) return;
+
+    if (apiKey == null || apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(

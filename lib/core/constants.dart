@@ -45,7 +45,7 @@ class AppDefaults {
   static const String defaultProvider = 'openai';
   static const String defaultModel = 'gpt-4o';
   static const String defaultTargetLanguage = 'English';
-  static const int maxChunkCharacters = 12000; // ~3000 tokens
+  static const int maxChunkCharacters = 4000; // ~4000 tokens for CJK, yields ~8000 output tokens
   static const int maxRetries = 3;
   static const Duration retryBaseDelay = Duration(seconds: 2);
   static const Duration chunkDelay = Duration(milliseconds: 500);
