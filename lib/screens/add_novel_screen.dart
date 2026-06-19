@@ -32,6 +32,7 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
   bool _isFetching = false;
   String? _fetchError;
   String? _previewText;
+  int _actualContentLength = 0;
   String? _detectedLanguage;
 
   @override
@@ -194,7 +195,7 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
                 ],
                 const Spacer(),
                 Text(
-                  '${_previewText!.length} chars',
+                  '$_actualContentLength chars',
                   style: theme.textTheme.labelMedium,
                 ),
               ],
@@ -325,6 +326,7 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
         _previewText = scraped.content.length > 1000
             ? '${scraped.content.substring(0, 1000)}...'
             : scraped.content;
+        _actualContentLength = scraped.content.length;
         _detectedLanguage = scraped.detectedLanguage;
         if (_titleController.text.isEmpty) {
           _titleController.text = scraped.title;

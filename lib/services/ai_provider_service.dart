@@ -101,39 +101,78 @@ class AIProviderService {
         ],
         'generationConfig': {
           'temperature': 0.3,
-          'maxOutputTokens': 8000,
+          'maxOutputTokens': 16384,
         },
         'safetySettings': [
-          {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_NONE'},
-          {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_NONE'},
-          {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_NONE'},
-          {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_NONE'}
+          {'category': 'HARM_CATEGORY_HARASSMENT', 'threshold': 'BLOCK_ONLY_HIGH'},
+          {'category': 'HARM_CATEGORY_HATE_SPEECH', 'threshold': 'BLOCK_ONLY_HIGH'},
+          {'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT', 'threshold': 'BLOCK_ONLY_HIGH'},
+          {'category': 'HARM_CATEGORY_DANGEROUS_CONTENT', 'threshold': 'BLOCK_ONLY_HIGH'}
         ]
       });
 
-      final response = await _postWithRetry(
-        Uri.parse(url),
-        headers: {'Content-Type': 'application/json'},
-        body: body,
-      );
+      http.Response response;
+      try {
+        response = await _postWithRetry(
+          Uri.parse(url),
+          headers: {'Content-Type': 'application/json'},
+          body: body,
+        );
+      } catch (e) {
+        throw Exception('Network error calling Gemini: $e');
+      }
 
-      final data = jsonDecode(response.body);
+      // Parse the JSON response safely
+      Map<String, dynamic> data;
+      try {
+        data = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (e) {
+        final preview = response.body.length > 200
+            ? response.body.substring(0, 200)
+            : response.body;
+        throw Exception('Failed to parse Gemini response (status ${response.statusCode}): $preview');
+      }
+
       if (response.statusCode != 200) {
-        throw Exception(
-            'Gemini error ${response.statusCode}: ${data['error']?['message'] ?? response.body}');
+        final errorMsg = data['error'] is Map
+            ? (data['error'] as Map)['message'] ?? 'Unknown error'
+            : response.body.length > 300
+                ? response.body.substring(0, 300)
+                : response.body;
+        throw Exception('Gemini error ${response.statusCode}: $errorMsg');
       }
 
-      final candidate = data['candidates'][0];
-      
+      // Safely extract candidate
+      final candidates = data['candidates'];
+      if (candidates == null || candidates is! List || candidates.isEmpty) {
+        throw Exception('Gemini returned no candidates. Status: ${response.statusCode}');
+      }
+
+      final candidate = candidates[0] as Map<String, dynamic>;
+      final finishReason = candidate['finishReason'] as String? ?? '';
+
+      // Check if content was blocked by safety filters
       if (candidate['content'] == null) {
-        final finishReason = candidate['finishReason'] ?? 'UNKNOWN';
-        throw Exception('Gemini blocked generation. Reason: $finishReason');
+        throw Exception(
+            'Gemini blocked this content (finishReason: $finishReason). '
+            'The chapter may contain content flagged by safety filters.');
       }
 
-      final content = candidate['content']['parts'][0]['text'] as String;
-      final tokens = data['usageMetadata']?['totalTokenCount'] as int? ?? 0;
+      // Safely extract text
+      final contentMap = candidate['content'] as Map<String, dynamic>?;
+      final parts = contentMap?['parts'] as List?;
+      if (parts == null || parts.isEmpty) {
+        throw Exception('Gemini returned empty content. finishReason: $finishReason');
+      }
 
-      return _parseResult(content, tokens);
+      final translatedText = parts[0]['text'] as String? ?? '';
+      if (translatedText.isEmpty) {
+        throw Exception('Gemini returned empty text. finishReason: $finishReason');
+      }
+
+      final tokens = (data['usageMetadata'] as Map?)?['totalTokenCount'] as int? ?? 0;
+
+      return _parseResult(translatedText, tokens);
     }
 
     Object? firstError;
@@ -248,11 +287,10 @@ class AIProviderService {
     required String body,
   }) async {
     for (int attempt = 0; attempt < AppDefaults.maxRetries; attempt++) {
-      final client = http.Client();
       try {
-        final response = await client
+        final response = await http
             .post(url, headers: headers, body: body)
-            .timeout(const Duration(seconds: 180));
+            .timeout(const Duration(seconds: 120));
 
         if (response.statusCode == 429 || response.statusCode >= 500) {
           if (attempt < AppDefaults.maxRetries - 1) {
@@ -262,16 +300,17 @@ class AIProviderService {
           }
         }
         return response;
-      } catch (e) {
+      } on Exception catch (e) {
         if (attempt < AppDefaults.maxRetries - 1) {
           final delay = AppDefaults.retryBaseDelay * (1 << attempt);
           await Future.delayed(delay);
           continue;
         }
         throw Exception(
-            'Connection lost or timed out after ${AppDefaults.maxRetries} attempts. Please try again later.\n\nError: $e');
-      } finally {
-        client.close();
+            'Connection lost or timed out after ${AppDefaults.maxRetries} attempts. Error: $e');
+      } on Error catch (e) {
+        // Catch Dart Errors (like RangeError, TypeError) that would crash the app
+        throw Exception('Internal error during HTTP request: $e');
       }
     }
     throw Exception('Max retries exceeded');

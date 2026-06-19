@@ -43,7 +43,7 @@ class AppDefaults {
   static const String defaultProvider = 'gemini';
   static const String defaultModel = 'gemini-2.5-flash';
   static const String defaultTargetLanguage = 'English';
-  static const int maxChunkCharacters = 4000; // ~4000 tokens for CJK, yields ~8000 output tokens
+  static const int maxChunkCharacters = 2000; // ~2000 CJK chars → safe output length
   static const int maxRetries = 3;
   static const Duration retryBaseDelay = Duration(seconds: 2);
   static const Duration chunkDelay = Duration(milliseconds: 500);
