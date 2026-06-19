@@ -18,9 +18,10 @@ class ReadingThemeToggle extends StatelessWidget {
       children: ReadingTheme.values.map((theme) {
         final isSelected = theme == currentTheme;
         final (color, label) = switch (theme) {
-          ReadingTheme.dark => (const Color(0xFF0D1117), 'Dark'),
-          ReadingTheme.sepia => (const Color(0xFFF4ECD8), 'Sepia'),
-          ReadingTheme.light => (const Color(0xFFF6F8FA), 'Light'),
+          ReadingTheme.dark => (const Color(0xFF13151A), 'Dark'),
+          ReadingTheme.oled => (const Color(0xFF000000), 'OLED'),
+          ReadingTheme.sepia => (const Color(0xFFF6EFE5), 'Sepia'),
+          ReadingTheme.light => (const Color(0xFFFAFAFA), 'Light'),
         };
 
         return Padding(
@@ -54,7 +55,7 @@ class ReadingThemeToggle extends StatelessWidget {
                   ? Icon(
                       Icons.check,
                       size: 16,
-                      color: theme == ReadingTheme.dark
+                      color: theme == ReadingTheme.dark || theme == ReadingTheme.oled
                           ? Colors.white
                           : Colors.black,
                     )

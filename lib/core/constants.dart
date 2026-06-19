@@ -6,14 +6,29 @@ class ApiEndpoints {
       'https://generativelanguage.googleapis.com/v1beta/models';
   static const String mistral = 'https://api.mistral.ai/v1/chat/completions';
   static const String deepseek = 'https://api.deepseek.com/chat/completions';
+  static const String openrouter =
+      'https://openrouter.ai/api/v1/chat/completions';
+  static const String grok = 'https://api.x.ai/v1/chat/completions';
 }
 
 class ProviderModels {
   static const Map<String, List<String>> models = {
     'openai': ['gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-    'gemini': ['gemini-1.5-pro', 'gemini-1.5-flash'],
+    'gemini': [
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+    ],
     'mistral': ['mistral-large-latest', 'mistral-medium-latest', 'mistral-small-latest'],
     'deepseek': ['deepseek-chat', 'deepseek-coder'],
+    'openrouter': [
+      'google/gemini-2.0-flash-001',
+      'google/gemini-flash-1.5-8b',
+      'x-ai/grok-2-1212',
+      'openai/gpt-4o',
+      'anthropic/claude-3.5-sonnet',
+      'deepseek/deepseek-chat',
+    ],
+    'grok': ['grok-2-1212', 'grok-2-latest', 'grok-beta'],
   };
 
   static const Map<String, String> providerNames = {
@@ -21,6 +36,8 @@ class ProviderModels {
     'gemini': 'Google Gemini',
     'mistral': 'Mistral AI',
     'deepseek': 'DeepSeek',
+    'openrouter': 'OpenRouter',
+    'grok': 'Grok (xAI)',
   };
 }
 
@@ -43,6 +60,8 @@ class SecureStorageKeys {
   static const String geminiKey = 'api_key_gemini';
   static const String mistralKey = 'api_key_mistral';
   static const String deepseekKey = 'api_key_deepseek';
+  static const String openrouterKey = 'api_key_openrouter';
+  static const String grokKey = 'api_key_grok';
 
   static String keyForProvider(String provider) {
     switch (provider) {
@@ -54,6 +73,10 @@ class SecureStorageKeys {
         return mistralKey;
       case 'deepseek':
         return deepseekKey;
+      case 'openrouter':
+        return openrouterKey;
+      case 'grok':
+        return grokKey;
       default:
         throw ArgumentError('Unknown provider: $provider');
     }

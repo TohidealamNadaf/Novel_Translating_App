@@ -46,14 +46,6 @@ class LibraryScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.settings_outlined),
-                onPressed: () => context.push('/settings'),
-                tooltip: 'Settings',
-              ),
-              const SizedBox(width: 8),
-            ],
           ),
 
           // ─── Content ───
@@ -141,13 +133,6 @@ class LibraryScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: novelsAsync.valueOrNull?.isNotEmpty == true
-          ? FloatingActionButton.extended(
-              onPressed: () => context.push('/add'),
-              icon: const Icon(Icons.add),
-              label: const Text('Add Novel'),
-            )
-          : null,
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import '../core/constants.dart';
 import '../core/theme.dart';
 import '../providers/settings_provider.dart';
@@ -16,6 +15,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _controllers = <String, TextEditingController>{};
   final _obscured = <String, bool>{};
+  bool _keysLoaded = false;
 
   @override
   void initState() {
@@ -23,17 +23,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     for (final provider in ProviderModels.models.keys) {
       _controllers[provider] = TextEditingController();
       _obscured[provider] = true;
-    }
-    _loadKeys();
-  }
-
-  Future<void> _loadKeys() async {
-    final keys = ref.read(apiKeyProvider);
-    for (final provider in ProviderModels.models.keys) {
-      final key = keys[provider];
-      if (key != null && key.isNotEmpty) {
-        _controllers[provider]!.text = key;
-      }
     }
   }
 
@@ -47,6 +36,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch the provider reactively so controllers update when keys finish loading
+    final keys = ref.watch(apiKeyProvider);
+    if (!_keysLoaded && keys.isNotEmpty) {
+      _keysLoaded = true;
+      for (final provider in ProviderModels.models.keys) {
+        final key = keys[provider];
+        if (key != null && key.isNotEmpty && _controllers[provider]!.text.isEmpty) {
+          _controllers[provider]!.text = key;
+        }
+      }
+    }
+
     final theme = Theme.of(context);
     final readingTheme = ref.watch(themeProvider);
     final fontSettings = ref.watch(fontSettingsProvider);
@@ -54,10 +55,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
         title: const Text('Settings'),
       ),
       body: ListView(
@@ -136,22 +133,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             },
           ),
           const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: defaultModel.model,
-            decoration: const InputDecoration(
-              labelText: 'Model',
-              prefixIcon: Icon(Icons.model_training),
-            ),
-            items: (ProviderModels.models[defaultModel.provider] ?? [])
-                .map((m) => DropdownMenuItem(
+          Builder(
+            builder: (context) {
+              final availableModels = ProviderModels.models[defaultModel.provider] ?? [];
+              final safeValue = availableModels.contains(defaultModel.model) 
+                  ? defaultModel.model 
+                  : (availableModels.isNotEmpty ? availableModels.first : null);
+              
+              return DropdownButtonFormField<String>(
+                value: safeValue,
+                decoration: const InputDecoration(
+                  labelText: 'Model',
+                  prefixIcon: Icon(Icons.model_training),
+                ),
+                items: availableModels
+                    .map((m) => DropdownMenuItem(
                       value: m,
                       child: Text(m),
                     ))
-                .toList(),
-            onChanged: (v) {
-              if (v != null) {
-                ref.read(defaultModelProvider.notifier).setModel(v);
-              }
+                  .toList(),
+                onChanged: (v) {
+                  if (v != null) {
+                    ref.read(defaultModelProvider.notifier).setModel(v);
+                  }
+                },
+              );
             },
           ),
 

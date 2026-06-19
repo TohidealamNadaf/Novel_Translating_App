@@ -79,52 +79,76 @@ class AIProviderService {
     return _parseResult(content, tokens);
   }
 
-  // ─── Gemini ───
   static Future<TranslationResult> _callGemini(
     String text,
     String model,
     String apiKey,
     String systemPrompt,
   ) async {
-    final url =
-        '${ApiEndpoints.gemini}/$model:generateContent?key=$apiKey';
+    final allModels = ProviderModels.models['gemini'] ?? [];
 
-    final body = jsonEncode({
-      'system_instruction': {
-        'parts': [
-          {'text': systemPrompt}
-        ]
-      },
-      'contents': [
-        {
-          'parts': [
-            {'text': text}
-          ]
-        }
-      ],
-      'generationConfig': {
-        'temperature': 0.3,
-        'maxOutputTokens': 8000,
-      },
-    });
+    Future<TranslationResult> attemptModel(String activeModel) async {
+      final url = '${ApiEndpoints.gemini}/$activeModel:generateContent?key=$apiKey';
 
-    final response = await _postWithRetry(
-      Uri.parse(url),
-      headers: {'Content-Type': 'application/json'},
-      body: body,
-    );
+      final body = jsonEncode({
+        'system_instruction': {
+          'parts': [{'text': systemPrompt}]
+        },
+        'contents': [
+          {
+            'parts': [{'text': text}]
+          }
+        ],
+        'generationConfig': {
+          'temperature': 0.3,
+          'maxOutputTokens': 8000,
+        },
+      });
 
-    final data = jsonDecode(response.body);
-    if (response.statusCode != 200) {
-      throw Exception(
-          'Gemini error ${response.statusCode}: ${data['error']?['message'] ?? response.body}');
+      final response = await _postWithRetry(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
+        body: body,
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode != 200) {
+        throw Exception(
+            'Gemini error ${response.statusCode}: ${data['error']?['message'] ?? response.body}');
+      }
+
+      final content =
+          data['candidates'][0]['content']['parts'][0]['text'] as String;
+      final tokens = data['usageMetadata']?['totalTokenCount'] as int? ?? 0;
+
+      return _parseResult(content, tokens);
     }
 
-    final content =
-        data['candidates'][0]['content']['parts'][0]['text'] as String;
-    final tokens = data['usageMetadata']?['totalTokenCount'] as int? ?? 0;
+    Object? firstError;
+    try {
+      return await attemptModel(model);
+    } catch (e) {
+      firstError = e;
+      final errStr = e.toString().toLowerCase();
+      final shouldFallback = errStr.contains('404') ||
+          errStr.contains('not found') ||
+          errStr.contains('503') ||
+          errStr.contains('high demand') ||
+          errStr.contains('overloaded');
 
-    return _parseResult(content, tokens);
+      if (shouldFallback) {
+        for (final fallbackModel in allModels) {
+          if (fallbackModel == model) continue;
+          try {
+            return await attemptModel(fallbackModel);
+          } catch (e2) {
+            firstError = e2;
+            continue;
+          }
+        }
+      }
+      throw Exception('Gemini translation failed. Error: $firstError');
+    }
   }
 
   // ─── Mistral ───
@@ -212,8 +236,11 @@ class AIProviderService {
     required String body,
   }) async {
     for (int attempt = 0; attempt < AppDefaults.maxRetries; attempt++) {
+      final client = http.Client();
       try {
-        final response = await http.post(url, headers: headers, body: body);
+        final response = await client
+            .post(url, headers: headers, body: body)
+            .timeout(const Duration(seconds: 180));
 
         if (response.statusCode == 429 || response.statusCode >= 500) {
           if (attempt < AppDefaults.maxRetries - 1) {
@@ -229,7 +256,10 @@ class AIProviderService {
           await Future.delayed(delay);
           continue;
         }
-        rethrow;
+        throw Exception(
+            'Connection lost or timed out after ${AppDefaults.maxRetries} attempts. Please try again later.\n\nError: $e');
+      } finally {
+        client.close();
       }
     }
     throw Exception('Max retries exceeded');
@@ -262,4 +292,58 @@ class AIProviderService {
       tokensUsed: tokens,
     );
   }
+
+  /// Generate a short summary and bullet points of key events for a chapter
+  static Future<ChapterSummary> generateChapterSummary({
+    required String text,
+    required String provider,
+    required String model,
+    required String apiKey,
+  }) async {
+    final systemPrompt = '''
+You are a helpful AI reading assistant. Your task is to summarize the provided novel chapter.
+Return your response ONLY as a JSON object with the following structure:
+{
+  "overview": "A brief 2-3 sentence overview of the chapter.",
+  "keyEvents": [
+    "Key event 1",
+    "Key event 2"
+  ]
+}
+Do not include markdown blocks or any other text outside the JSON.
+''';
+
+    final result = await translateChunk(
+      text: text,
+      provider: provider,
+      model: model,
+      apiKey: apiKey,
+      systemPrompt: systemPrompt,
+    );
+
+    try {
+      final jsonStr = result.translatedText.replaceAll(RegExp(r'```json|```'), '').trim();
+      final data = jsonDecode(jsonStr);
+      return ChapterSummary(
+        overview: data['overview'] ?? 'No overview provided.',
+        keyEvents: List<String>.from(data['keyEvents'] ?? []),
+      );
+    } catch (e) {
+      // Fallback if AI fails to return JSON
+      return ChapterSummary(
+        overview: result.translatedText,
+        keyEvents: [],
+      );
+    }
+  }
+}
+
+class ChapterSummary {
+  final String overview;
+  final List<String> keyEvents;
+
+  ChapterSummary({
+    required this.overview,
+    required this.keyEvents,
+  });
 }

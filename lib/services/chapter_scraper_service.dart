@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart';
 import 'package:flutter/foundation.dart';
+import 'package:gbk_codec/gbk_codec.dart';
 import '../core/constants.dart';
 
 /// Result of scraping a chapter
@@ -26,16 +28,24 @@ class SiteProfile {
   final List<String> nextChapterSelectors;
   final List<String> titleSelectors;
 
+  /// Extra noise selectors to strip from the content element
+  final List<String> stripSelectors;
+
+  /// 'gbk' or 'utf-8'
+  final String charset;
+
   const SiteProfile({
     required this.domain,
     required this.contentSelectors,
     required this.nextChapterSelectors,
     required this.titleSelectors,
+    this.stripSelectors = const [],
+    this.charset = 'utf-8',
   });
 }
 
 class ChapterScraperService {
-  // ─── Pre-configured site profiles ───
+  // ─── Site profiles ───
   static const List<SiteProfile> _siteProfiles = [
     SiteProfile(
       domain: 'novelbin.me',
@@ -97,46 +107,98 @@ class ChapterScraperService {
       nextChapterSelectors: ['.next-chap', 'a.next'],
       titleSelectors: ['.current-crumb', 'h1'],
     ),
+
+    // ─── 69shu family (GBK encoded) ───
     SiteProfile(
       domain: '69shu.com',
       contentSelectors: ['.txtnav', '#txtContent', '.novelcontent'],
-      nextChapterSelectors: ['.p1 a:last-child', 'a:contains(下一章)'],
+      nextChapterSelectors: ['#next_url', '#next', '.p1 a:last-child'],
       titleSelectors: ['h1', '.bread-crumb'],
+      stripSelectors: [
+        '.txtinfo', '#txtright', '.contentadv',
+        '.bottom-ad', '.bottom-ad2', '.page1', 'script', 'style',
+      ],
+      charset: 'gbk',
     ),
+    // 69shuba.com  —  /txt/<bookId>/<chapterId>
+    SiteProfile(
+      domain: '69shuba.com',
+      contentSelectors: ['.txtnav', '#txtContent', '.novelcontent'],
+      nextChapterSelectors: ['#next_url', '#next', '.p1 a:last-child'],
+      titleSelectors: ['h1', '.bread-crumb', '.title'],
+      stripSelectors: [
+        '.txtinfo', '#txtright', '.contentadv',
+        '.bottom-ad', '.bottom-ad2', '.page1', 'script', 'style',
+      ],
+      charset: 'gbk',
+    ),
+    // 69shuba.tw  —  /read/<bookId>/<chapterId>  (same HTML structure, GBK)
+    SiteProfile(
+      domain: '69shuba.tw',
+      contentSelectors: ['.txtnav', '#txtContent', '.novelcontent'],
+      nextChapterSelectors: ['#next_url', '#next', '.p1 a:last-child'],
+      titleSelectors: ['h1', '.bread-crumb', '.title'],
+      stripSelectors: [
+        '.txtinfo', '#txtright', '.contentadv',
+        '.bottom-ad', '.bottom-ad2', '.page1', 'script', 'style',
+      ],
+      charset: 'gbk',
+    ),
+    // 69shubha.com (legacy alias)
     SiteProfile(
       domain: '69shubha.com',
       contentSelectors: ['.txtnav', '#txtContent', '.novelcontent'],
-      nextChapterSelectors: ['.p1 a:last-child', 'a:contains(下一章)'],
+      nextChapterSelectors: ['#next_url', '#next', '.p1 a:last-child'],
       titleSelectors: ['h1', '.bread-crumb'],
+      stripSelectors: [
+        '.txtinfo', '#txtright', '.contentadv',
+        '.bottom-ad', '.page1', 'script', 'style',
+      ],
+      charset: 'gbk',
     ),
+
     SiteProfile(
       domain: 'novelnest.com',
       contentSelectors: ['.reading-content', '#chapter-content', '.text-left'],
       nextChapterSelectors: ['.next_page', '.next-chap', 'a.next'],
       titleSelectors: ['.chapter-title', 'h1', 'h2'],
     ),
+
+    // ─── 8book / thepaperbooks family (UTF-8) ───
     SiteProfile(
       domain: '8book.com',
-      contentSelectors: ['#content', '#TextContent', '.readcontent'],
-      nextChapterSelectors: ['#next_url', '#next', 'a:contains(下一章)'],
+      contentSelectors: ['.txtnav', '#content', '#TextContent', '.readcontent', '.chapter_content', '.post-content', '.entry-content', '#nr_content', '.book_content', '.article-content', '.novel-content'],
+      nextChapterSelectors: ['#next_url', '#next', 'a.next'],
       titleSelectors: ['h1', '.title'],
+      stripSelectors: ['.txtinfo', '.page1', 'script', 'style'],
     ),
     SiteProfile(
-      domain: 'sport.thepaperbooks.com',
-      contentSelectors: ['#content', '#TextContent', '.readcontent'],
-      nextChapterSelectors: ['#next_url', '#next', 'a:contains(下一章)'],
+      domain: 'thepaperbooks.com',
+      contentSelectors: ['.txtnav', '#content', '#TextContent', '.readcontent', '.chapter_content', '.post-content', '.entry-content', '#nr_content', '.book_content', '.article-content', '.novel-content'],
+      nextChapterSelectors: ['#next_url', '#next', 'a.next'],
       titleSelectors: ['h1', '.title'],
+      stripSelectors: ['.txtinfo', '.page1', 'script', 'style'],
     ),
+    // sport.thepaperbooks.com is a subdomain of thepaperbooks.com — explicit entry
+    SiteProfile(
+      domain: 'sport.thepaperbooks.com',
+      contentSelectors: ['.txtnav', '#content', '#TextContent', '.readcontent', '.chapter_content', '.post-content', '.entry-content', '#nr_content', '.book_content', '.article-content', '.novel-content'],
+      nextChapterSelectors: ['#next_url', '#next', 'a.next'],
+      titleSelectors: ['h1', '.title'],
+      stripSelectors: ['.txtinfo', '.page1', 'script', 'style'],
+    ),
+
     SiteProfile(
       domain: 'uukanshu.com',
       contentSelectors: ['#contentbox', '.readcontent'],
-      nextChapterSelectors: ['#next', 'a:contains(下一章)'],
+      nextChapterSelectors: ['#next', 'a.next'],
       titleSelectors: ['h1', '#timark'],
+      charset: 'gbk',
     ),
     SiteProfile(
       domain: 'syosetu.com',
       contentSelectors: ['#novel_honbun', '.novel_view'],
-      nextChapterSelectors: ['.novel_bn a:last-child', 'a:contains(次の章)'],
+      nextChapterSelectors: ['.novel_bn a:last-child'],
       titleSelectors: ['.novel_subtitle', 'h1'],
     ),
     SiteProfile(
@@ -148,7 +210,7 @@ class ChapterScraperService {
     SiteProfile(
       domain: 'novelpia.com',
       contentSelectors: ['#episode_cont', '.novel-content'],
-      nextChapterSelectors: ['.next-episode', 'a:contains(다음)'],
+      nextChapterSelectors: ['.next-episode'],
       titleSelectors: ['.episode-title', 'h2'],
     ),
     SiteProfile(
@@ -159,31 +221,64 @@ class ChapterScraperService {
     ),
   ];
 
-  /// Scrape a chapter from the given URL
+  // ──────────────────────────────────────────────────────────────────────────
+  // Public API
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Scrape a chapter from [url] and return the structured result.
   static Future<ScrapedChapter> scrapeChapter(String url) async {
-    final html = await _fetchHtml(url);
-    final document = html_parser.parse(html);
     final uri = Uri.parse(url);
     final profile = _findProfile(uri.host);
 
-    // Extract title
+    // Fetch raw bytes so we can handle any encoding
+    final rawBytes = await _fetchBytes(url);
+
+    // Determine the encoding: profile hint → meta-tag detection → utf-8
+    final charset = profile?.charset ?? _sniffCharset(rawBytes);
+    final html = _decode(rawBytes, charset);
+
+    final document = html_parser.parse(html);
+
     final title = _extractTitle(document, profile) ?? 'Untitled Chapter';
 
-    // Extract content
-    String content;
-    if (profile != null) {
-      content = _extractContentWithProfile(document, profile);
-    } else {
-      content = _extractContentGeneric(document);
+    // 8book / sport.thepaperbooks.com specific interceptor for dynamic text
+    if (uri.host.contains('8book.com') || uri.host.contains('sport.thepaperbooks.com')) {
+      final textUrl = _extract8bookTextUrl(html, uri.toString());
+      if (textUrl != null) {
+        final textBytes = await _fetchBytes(textUrl);
+        final textHtml = _decode(textBytes, 'utf-8');
+        String content = textHtml
+            .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+            .replaceAll(RegExp(r'</?p[^>]*>', caseSensitive: false), '\n')
+            .replaceAll(RegExp(r'</?div[^>]*>', caseSensitive: false), '\n')
+            .replaceAll(RegExp(r'<[^>]+>'), '');
+            
+        content = content.split('\n').map((line) => line.trim()).where((line) => line.isNotEmpty).join('\n\n');
+        content = _sanitize(content);
+        
+        return ScrapedChapter(
+          title: title,
+          content: content,
+          nextChapterUrl: _detectNextUrl(document, uri, profile),
+          detectedLanguage: detectLanguage(content),
+        );
+      }
     }
 
-    // Sanitize
-    content = _sanitizeContent(content);
+    String content = profile != null
+        ? _extractWithProfile(document, profile)
+        : _extractGeneric(document);
 
-    // Detect next chapter URL
-    final nextUrl = _detectNextChapterUrl(document, uri, profile, html);
+    content = _sanitize(content);
 
-    // Detect language
+    if (content.isEmpty) {
+      throw Exception(
+        'Could not extract chapter content from ${uri.host}. '
+        'The page may require JavaScript or a login.',
+      );
+    }
+
+    final nextUrl = _detectNextUrl(document, uri, profile);
     final language = detectLanguage(content);
 
     return ScrapedChapter(
@@ -194,362 +289,420 @@ class ChapterScraperService {
     );
   }
 
-  /// Fetch raw HTML from URL
-  static Future<String> _fetchHtml(String url) async {
-    String fetchUrl = url;
+  // ──────────────────────────────────────────────────────────────────────────
+  // HTTP
+  // ──────────────────────────────────────────────────────────────────────────
 
-    // On web, use CORS proxy
+  static Future<List<int>> _fetchBytes(String url) async {
+    // Sanitize the URL to remove accidental copy-paste spaces
+    String fetchUrl = url.trim().replaceAll(RegExp(r'\s+'), '');
     if (kIsWeb) {
-      fetchUrl = '${AppDefaults.corsProxy}${Uri.encodeComponent(url)}';
+      fetchUrl = '${AppDefaults.corsProxy}${Uri.encodeComponent(fetchUrl)}';
     }
 
-    final response = await http.get(
-      Uri.parse(fetchUrl),
-      headers: {'User-Agent': AppDefaults.userAgent},
-    );
+    final parsedUri = Uri.parse(fetchUrl);
+    final client = http.Client();
+    try {
+      final response = await client.get(
+        parsedUri,
+        headers: {
+          'User-Agent': AppDefaults.userAgent,
+          'Accept':
+              'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          'Referer': parsedUri.origin,
+        },
+      ).timeout(const Duration(seconds: 30));
 
-    if (response.statusCode != 200) {
-      throw Exception('Failed to fetch page: HTTP ${response.statusCode}');
+      if (response.statusCode != 200) {
+        throw Exception('HTTP ${response.statusCode} from ${Uri.parse(url).host}');
+      }
+
+      return response.bodyBytes;
+    } finally {
+      client.close();
     }
-
-    // Check if proxy returned an error JSON instead of HTML
-    final bodyStr = response.body;
-    if (bodyStr.trim().startsWith('{')) {
-      throw Exception('CORS Proxy Error or blocked: $bodyStr');
-    }
-
-    return bodyStr;
   }
 
-  /// Find matching site profile
-  static SiteProfile? _findProfile(String host) {
-    final normalizedHost = host.replaceFirst(RegExp(r'^www\.'), '');
-    for (final profile in _siteProfiles) {
-      if (normalizedHost == profile.domain ||
-          normalizedHost.endsWith('.${profile.domain}')) {
-        return profile;
+  // ──────────────────────────────────────────────────────────────────────────
+  // Encoding
+  // ──────────────────────────────────────────────────────────────────────────
+
+  /// Peek at the first 2 KB (as latin-1) to find a charset meta declaration.
+  static String _sniffCharset(List<int> bytes) {
+    final preview = latin1.decode(
+      bytes.sublist(0, bytes.length < 2048 ? bytes.length : 2048),
+      allowInvalid: true,
+    );
+    // Match: charset=gbk  charset="utf-8"  charset='gb2312'  (with or without quotes)
+    // Avoid putting quote chars in the pattern to prevent MSBuild XML parse issues.
+    final m = RegExp(r'charset\s*=\s*[\w-]+', caseSensitive: false)
+        .firstMatch(preview);
+    if (m != null) {
+      // Extract just the value after the '='
+      final raw = m.group(0)!;
+      final eq = raw.indexOf('=');
+      final cs = raw.substring(eq + 1).trim().toLowerCase().replaceAll('-', '');
+      if (cs.contains('gbk') || cs.contains('gb2312') || cs.contains('gb18030')) {
+        return 'gbk';
       }
+    }
+    return 'utf-8';
+  }
+
+  /// Decode [bytes] using [charset] ('gbk' or 'utf-8').
+  static String _decode(List<int> bytes, String charset) {
+    if (charset == 'gbk') {
+      try {
+        return gbk.decode(bytes);
+      } catch (_) {
+        // Fallback: try utf-8, then latin-1
+        try {
+          return utf8.decode(bytes, allowMalformed: true);
+        } catch (_) {
+          return latin1.decode(bytes, allowInvalid: true);
+        }
+      }
+    }
+    try {
+      return utf8.decode(bytes, allowMalformed: true);
+    } catch (_) {
+      return latin1.decode(bytes, allowInvalid: true);
+    }
+  }
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // Profile lookup
+  // ──────────────────────────────────────────────────────────────────────────
+
+  static SiteProfile? _findProfile(String host) {
+    // Try exact match first (handles subdomains like sport.thepaperbooks.com)
+    for (final p in _siteProfiles) {
+      if (host == p.domain || host == 'www.${p.domain}') return p;
+    }
+    // Then suffix match
+    final stripped = host.replaceFirst(RegExp(r'^www\.'), '');
+    for (final p in _siteProfiles) {
+      if (stripped == p.domain || stripped.endsWith('.${p.domain}')) return p;
     }
     return null;
   }
 
-  /// Extract title using profile selectors or fallback
-  static String? _extractTitle(Document document, SiteProfile? profile) {
+  // ──────────────────────────────────────────────────────────────────────────
+  // Content extraction
+  // ──────────────────────────────────────────────────────────────────────────
+
+  static String? _extractTitle(Document doc, SiteProfile? profile) {
     if (profile != null) {
-      for (final selector in profile.titleSelectors) {
+      for (final sel in profile.titleSelectors) {
         try {
-          final element = document.querySelector(selector);
-          if (element != null && element.text.trim().isNotEmpty) {
-            return element.text.trim();
-          }
+          final el = doc.querySelector(sel);
+          if (el != null && el.text.trim().isNotEmpty) return el.text.trim();
         } catch (_) {}
       }
     }
-
-    // Fallback: <h1>, <h2>, or <title>
     for (final tag in ['h1', 'h2', 'title']) {
-      final el = document.querySelector(tag);
-      if (el != null && el.text.trim().isNotEmpty) {
-        return el.text.trim();
-      }
+      final el = doc.querySelector(tag);
+      if (el != null && el.text.trim().isNotEmpty) return el.text.trim();
     }
     return null;
   }
 
-  /// Extract content using site profile selectors
-  static String _extractContentWithProfile(
-      Document document, SiteProfile profile) {
-    for (final selector in profile.contentSelectors) {
+  static String _extractWithProfile(Document doc, SiteProfile profile) {
+    for (final sel in profile.contentSelectors) {
       try {
-        final element = document.querySelector(selector);
-        if (element != null) {
-          _stripUnwantedElements(element);
-          return _extractText(element);
+        final el = doc.querySelector(sel);
+        if (el != null) {
+          _strip(el, profile.stripSelectors);
+          _stripNoise(el);
+          return _textFrom(el);
         }
       } catch (_) {}
     }
-    // Fall back to generic
-    return _extractContentGeneric(document);
+    return _extractGeneric(doc);
   }
 
-  /// Generic content extraction fallback
-  static String _extractContentGeneric(Document document) {
-    // Try common selectors
-    final commonSelectors = [
+  static String _extractGeneric(Document doc) {
+    const common = [
       'article',
       '.chapter-content',
       '#chapter-content',
       '.read-content',
       '.reading-content',
       '.novel-content',
+      '.post-content',
+      '.entry-content',
+      '#nr_content',
+      '.book_content',
+      '.article-content',
       '#content',
       '.content',
     ];
-
-    for (final selector in commonSelectors) {
+    for (final sel in common) {
       try {
-        final element = document.querySelector(selector);
-        if (element != null && element.text.trim().length > 200) {
-          _stripUnwantedElements(element);
-          return _extractText(element);
+        final el = doc.querySelector(sel);
+        if (el != null && el.text.trim().length > 200) {
+          _stripNoise(el);
+          return _textFrom(el);
         }
       } catch (_) {}
     }
 
-    // Heuristic: find the longest <div> by text length
-    final divs = document.querySelectorAll('div');
-    Element? longestDiv;
-    int maxLength = 0;
-
-    for (final div in divs) {
-      final textLength = div.text.trim().length;
-      if (textLength > maxLength) {
-        maxLength = textLength;
-        longestDiv = div;
+    // Heuristic: longest <div>
+    Element? best;
+    int bestLen = 0;
+    for (final div in doc.querySelectorAll('div')) {
+      final len = div.text.trim().length;
+      if (len > bestLen) {
+        bestLen = len;
+        best = div;
       }
     }
-
-    if (longestDiv != null && maxLength > 200) {
-      _stripUnwantedElements(longestDiv);
-      return _extractText(longestDiv);
+    if (best != null && bestLen > 200) {
+      _stripNoise(best);
+      return _textFrom(best);
     }
 
     // Last resort: all <p> tags
-    final paragraphs = document.querySelectorAll('p');
-    return paragraphs.map((p) => p.text.trim()).where((t) => t.isNotEmpty).join('\n\n');
+    return doc
+        .querySelectorAll('p')
+        .map((p) => p.text.trim())
+        .where((t) => t.isNotEmpty)
+        .join('\n\n');
   }
 
-  /// Strip scripts, styles, navs, ads from an element
-  static void _stripUnwantedElements(Element element) {
-    final selectorsToRemove = [
-      'script',
-      'style',
-      'nav',
-      'footer',
-      'header',
-      '.ads',
-      '.ad',
-      '.advertisement',
-      '.social-share',
-      '.comments',
-      '.sidebar',
-      'iframe',
-      'noscript',
-    ];
-
-    for (final selector in selectorsToRemove) {
+  static void _strip(Element el, List<String> selectors) {
+    for (final sel in selectors) {
       try {
-        element.querySelectorAll(selector).forEach((e) => e.remove());
+        el.querySelectorAll(sel).forEach((e) => e.remove());
       } catch (_) {}
     }
   }
 
-  /// Extract text from element, preserving paragraph breaks
-  static String _extractText(Element element) {
-    final paragraphs = element.querySelectorAll('p');
-    if (paragraphs.isNotEmpty) {
-      return paragraphs
-          .map((p) => p.text.trim())
-          .where((t) => t.isNotEmpty)
-          .join('\n\n');
-    }
+  static void _stripNoise(Element el) {
+    _strip(el, const [
+      'script', 'style', 'nav', 'footer', 'header', 'iframe', 'noscript',
+      '.ads', '.ad', '.advertisement', '.social-share', '.comments', '.sidebar',
+    ]);
+  }
 
-    // If no <p> tags, split by <br> and newlines
-    final html = element.innerHtml;
-    final text = html
-        .replaceAll(RegExp(r'<br\s*/?>'), '\n')
-        .replaceAll(RegExp(r'<[^>]+>'), '')
+  /// Convert an element to readable text, honouring <br> and <p> breaks.
+  static String _textFrom(Element el) {
+    // Replace block-level elements with newlines before stripping tags
+    final raw = el.innerHtml
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</?p[^>]*>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</?div[^>]*>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<[^>]+>'), ''); // strip remaining tags
+
+    return raw
         .split('\n')
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .join('\n\n');
-
-    return text;
   }
 
-  /// Detect next chapter URL — uses priority order from spec
-  static String? _detectNextChapterUrl(
-    Document document,
-    Uri currentUri,
-    SiteProfile? profile,
-    String rawHtml,
-  ) {
-    // 1. Site profile selectors
+  // ──────────────────────────────────────────────────────────────────────────
+  // Next chapter detection
+  // ──────────────────────────────────────────────────────────────────────────
+
+  static String? _detectNextUrl(
+      Document doc, Uri currentUri, SiteProfile? profile) {
+    // 1. Profile selectors
     if (profile != null) {
-      for (final selector in profile.nextChapterSelectors) {
+      for (final sel in profile.nextChapterSelectors) {
         try {
-          final element = document.querySelector(selector);
-          if (element != null) {
-            final href = element.attributes['href'];
-            if (href != null && href.isNotEmpty) {
-              return _resolveUrl(href, currentUri);
-            }
+          final el = doc.querySelector(sel);
+          if (el != null) {
+            final href = _safeHref(el);
+            if (href != null) return _resolve(href, currentUri);
           }
         } catch (_) {}
       }
     }
 
-    // 2. Search for <a> with "next chapter" text patterns
-    final nextPatterns = [
-      'next chapter',
-      'next',
-      '下一章',
-      '다음 챕터',
-      '다음',
-      '次の章',
-      '次へ',
+    // 2. Anchor text patterns
+    const patterns = [
+      '下一章', '下一页', '次の章', '次へ', '다음', '다음 챕터',
+      'next chapter', 'next',
     ];
-
-    final anchors = document.querySelectorAll('a');
-    for (final anchor in anchors) {
-      final text = anchor.text.trim().toLowerCase();
-      for (final pattern in nextPatterns) {
-        if (text.contains(pattern)) {
-          final href = anchor.attributes['href'];
-          if (href != null && href.isNotEmpty && href != '#') {
-            return _resolveUrl(href, currentUri);
-          }
+    for (final a in doc.querySelectorAll('a')) {
+      final txt = a.text.trim().toLowerCase();
+      for (final p in patterns) {
+        if (txt == p.toLowerCase() || txt.contains(p.toLowerCase())) {
+          final href = _safeHref(a);
+          if (href != null) return _resolve(href, currentUri);
         }
       }
     }
 
-    // 3. <a rel="next">
-    final relNext = document.querySelector('a[rel="next"]');
-    if (relNext != null) {
-      final href = relNext.attributes['href'];
-      if (href != null && href.isNotEmpty) {
-        return _resolveUrl(href, currentUri);
+    // 3. rel="next"
+    for (final sel in ['a[rel="next"]', 'link[rel="next"]']) {
+      final el = doc.querySelector(sel);
+      if (el != null) {
+        final href = _safeHref(el);
+        if (href != null) return _resolve(href, currentUri);
       }
     }
 
-    // 4. <link rel="next">
-    final linkNext = document.querySelector('link[rel="next"]');
-    if (linkNext != null) {
-      final href = linkNext.attributes['href'];
-      if (href != null && href.isNotEmpty) {
-        return _resolveUrl(href, currentUri);
+    // 4. URL increment heuristic
+    return _incrementUrl(currentUri);
+  }
+
+  static String? _safeHref(Element el) {
+    final href = el.attributes['href'];
+    if (href == null || href.isEmpty || href == '#') return null;
+    if (href.startsWith('javascript:')) return null;
+    return href;
+  }
+
+  static String _resolve(String nextUrl, Uri baseUri) {
+    // Basic fallback: just return the original if it's already absolute
+    if (nextUrl.startsWith('http')) return nextUrl;
+
+    // Use Uri class to resolve relative paths against base url
+    try {
+      final nextUri = baseUri.resolve(nextUrl);
+      return nextUri.toString();
+    } catch (_) {
+      return nextUrl;
+    }
+  }
+
+  // 8book specific URL extraction
+  static String? _extract8bookTextUrl(String html, String pageUrl) {
+    try {
+      final itemIdMatch = RegExp(r'<meta name="itemid" content="(\d+)"').firstMatch(html);
+      if (itemIdMatch == null) return null;
+      final itemId = int.parse(itemIdMatch.group(1)!);
+
+      final uri = Uri.parse(pageUrl);
+      // The chapter ID is usually the last segment or query param
+      String chapterId = '';
+      if (uri.query.isNotEmpty && RegExp(r'\d+').hasMatch(uri.query)) {
+        chapterId = RegExp(r'\d+').firstMatch(uri.query)!.group(0)!;
+      } else {
+        chapterId = uri.pathSegments.last.replaceAll(RegExp(r'[^0-9]'), '');
       }
-    }
+      if (chapterId.isEmpty) return null;
 
-    // 5. Heuristic URL increment
-    return _tryIncrementUrl(currentUri);
+      final q77Match = RegExp(r'var [a-zA-Z0-9_]+="(\d+(?:,\d+)*,(\d{100,}))"\.split\(').firstMatch(html);
+      if (q77Match == null) return null;
+      final lastString = q77Match.group(2)!;
+
+      final substrMatch = RegExp(r'\.substr\([a-zA-Z0-9_]+ \* ([a-zA-Z0-9_]+) % ([a-zA-Z0-9_]+),\s*([a-zA-Z0-9_]+)\)').firstMatch(html);
+      if (substrMatch == null) return null;
+      final multVar = substrMatch.group(1);
+      final modVar = substrMatch.group(2);
+      final lenVar = substrMatch.group(3);
+
+      final multValStr = RegExp('var $multVar=(\\d+);').firstMatch(html)?.group(1);
+      final modValStr = RegExp('var $modVar=(\\d+);').firstMatch(html)?.group(1);
+      final lenValStr = RegExp('var $lenVar=(\\d+);').firstMatch(html)?.group(1);
+
+      if (multValStr == null || modValStr == null || lenValStr == null) return null;
+
+      final mult = int.parse(multValStr);
+      final mod = int.parse(modValStr);
+      final len = int.parse(lenValStr);
+
+      final cId = int.parse(chapterId);
+      final idx = (cId * mult) % mod;
+      final hash = lastString.substring(idx, idx + len);
+
+      final idPrefix = itemId ~/ 100000;
+      return 'https://${uri.host}/txt/$idPrefix/$itemId/$chapterId$hash.html';
+    } catch (e) {
+      print('Failed to extract 8book text url: $e');
+      return null;
+    }
   }
 
-  /// Resolve relative URL against base
-  static String _resolveUrl(String href, Uri baseUri) {
-    if (href.startsWith('http://') || href.startsWith('https://')) {
-      return href;
-    }
-    return baseUri.resolve(href).toString();
-  }
-
-  /// Try incrementing chapter number in URL
-  static String? _tryIncrementUrl(Uri uri) {
+  static String? _incrementUrl(Uri uri) {
     final path = uri.toString();
 
-    // Pattern: /chapter-45 → /chapter-46
-    final chapterDash = RegExp(r'(chapter[_-])(\d+)');
-    final dashMatch = chapterDash.firstMatch(path);
-    if (dashMatch != null) {
-      final num = int.parse(dashMatch.group(2)!);
-      return path.replaceFirst(chapterDash, '${dashMatch.group(1)}${num + 1}');
+    // chapter-45 / chapter_45
+    final re1 = RegExp(r'(chapter[_-])(\d+)');
+    final m1 = re1.firstMatch(path);
+    if (m1 != null) {
+      final n = int.parse(m1.group(2)!);
+      return path.replaceFirst(re1, '${m1.group(1)}${n + 1}');
     }
 
-    // Pattern: -c45 → -c46
-    final cPattern = RegExp(r'(-c)(\d+)');
-    final cMatch = cPattern.firstMatch(path);
-    if (cMatch != null) {
-      final num = int.parse(cMatch.group(2)!);
-      return path.replaceFirst(cPattern, '${cMatch.group(1)}${num + 1}');
+    // -c45
+    final re2 = RegExp(r'(-c)(\d+)');
+    final m2 = re2.firstMatch(path);
+    if (m2 != null) {
+      final n = int.parse(m2.group(2)!);
+      return path.replaceFirst(re2, '${m2.group(1)}${n + 1}');
     }
 
-    // Pattern: ?chapter=45 → ?chapter=46
-    final queryParam = uri.queryParameters['chapter'];
-    if (queryParam != null) {
-      final num = int.tryParse(queryParam);
-      if (num != null) {
-        final newQuery = Map<String, String>.from(uri.queryParameters);
-        newQuery['chapter'] = '${num + 1}';
-        return uri.replace(queryParameters: newQuery).toString();
+    // ?chapter=45
+    if (uri.queryParameters.containsKey('chapter')) {
+      final n = int.tryParse(uri.queryParameters['chapter']!);
+      if (n != null) {
+        final q = Map<String, String>.from(uri.queryParameters)
+          ..['chapter'] = '${n + 1}';
+        return uri.replace(queryParameters: q).toString();
       }
     }
 
-    // Pattern: trailing number /45 → /46 or _45 → _46
-    final trailingNum = RegExp(r'([/_])(\d+)(?:[/]?)$');
-    final trailingMatch = trailingNum.firstMatch(path);
-    if (trailingMatch != null) {
-      final num = int.parse(trailingMatch.group(2)!);
-      return path.replaceFirst(
-          trailingNum, '${trailingMatch.group(1)}${num + 1}');
+    // trailing numeric segment: /4031644 → /4031645
+    final re3 = RegExp(r'([/_])(\d+)(?:[/]?)$');
+    final m3 = re3.firstMatch(path);
+    if (m3 != null) {
+      final n = int.parse(m3.group(2)!);
+      return path.replaceFirst(re3, '${m3.group(1)}${n + 1}');
     }
 
     return null;
   }
 
-  /// Sanitize content: remove ads, normalize whitespace
-  static String _sanitizeContent(String content) {
-    var sanitized = content;
+  // ──────────────────────────────────────────────────────────────────────────
+  // Sanitisation
+  // ──────────────────────────────────────────────────────────────────────────
 
-    // Remove ad patterns
-    for (final pattern in AdPatterns.adRegexes) {
-      sanitized = sanitized.replaceAll(pattern, '');
+  static String _sanitize(String content) {
+    var s = content;
+
+    for (final pat in AdPatterns.adRegexes) {
+      s = s.replaceAll(pat, '');
     }
 
-    // Remove lines that are just URLs
-    sanitized = sanitized
+    // Remove lines that are bare URLs
+    s = s
         .split('\n')
-        .where((line) =>
-            !RegExp(r'^\s*https?://').hasMatch(line) || line.trim().length > 100)
+        .where((l) => !RegExp(r'^\s*https?://\S+\s*$').hasMatch(l))
         .join('\n');
 
-    // Normalize whitespace but preserve paragraph breaks
-    sanitized = sanitized
+    s = s
         .replaceAll(RegExp(r'[ \t]+'), ' ')
         .replaceAll(RegExp(r'\n{3,}'), '\n\n')
         .trim();
 
-    return sanitized;
+    return s;
   }
 
-  /// Detect source language from content
+  // ──────────────────────────────────────────────────────────────────────────
+  // Language detection
+  // ──────────────────────────────────────────────────────────────────────────
+
   static String detectLanguage(String text) {
     if (text.isEmpty) return 'unknown';
 
-    int cjkCount = 0;
-    int hangulCount = 0;
-    int jpKanaCount = 0;
-    int totalChars = 0;
-
-    for (final rune in text.runes) {
-      if (rune == 0x20 || rune == 0x0A || rune == 0x0D) continue;
-      totalChars++;
-
-      // CJK Unified Ideographs
-      if (rune >= 0x4E00 && rune <= 0x9FFF) cjkCount++;
-      // Hangul Syllables
-      if (rune >= 0xAC00 && rune <= 0xD7AF) hangulCount++;
-      // Hiragana + Katakana
-      if ((rune >= 0x3040 && rune <= 0x309F) ||
-          (rune >= 0x30A0 && rune <= 0x30FF)) {
-        jpKanaCount++;
-      }
+    int cjk = 0, hangul = 0, kana = 0, total = 0;
+    for (final r in text.runes) {
+      if (r == 0x20 || r == 0x0A || r == 0x0D) continue;
+      total++;
+      if (r >= 0x4E00 && r <= 0x9FFF) cjk++;
+      if (r >= 0xAC00 && r <= 0xD7AF) hangul++;
+      if ((r >= 0x3040 && r <= 0x309F) || (r >= 0x30A0 && r <= 0x30FF)) kana++;
     }
+    if (total == 0) return 'unknown';
 
-    if (totalChars == 0) return 'unknown';
-
-    final hangulRatio = hangulCount / totalChars;
-    final jpKanaRatio = jpKanaCount / totalChars;
-    final cjkRatio = cjkCount / totalChars;
-
-    // Korean check first (Hangul is unambiguous)
-    if (hangulRatio > 0.10) return 'Korean';
-
-    // Japanese check (Kana is unambiguous for Japanese)
-    if (jpKanaRatio > 0.05) return 'Japanese';
-
-    // Chinese (CJK without Hangul or Kana)
-    if (cjkRatio > 0.20) return 'Chinese';
-
+    if (hangul / total > 0.10) return 'Korean';
+    if (kana / total > 0.05) return 'Japanese';
+    if (cjk / total > 0.20) return 'Chinese';
     return 'unknown';
   }
 }

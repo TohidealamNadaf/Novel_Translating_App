@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../core/constants.dart';
 import '../core/theme.dart';
 import '../models/novel.dart';
 import '../providers/novel_provider.dart';
@@ -9,7 +11,7 @@ import '../providers/glossary_provider.dart';
 import '../providers/settings_provider.dart';
 import '../services/database_service.dart';
 import '../widgets/chapter_text_widget.dart';
-import '../widgets/reading_theme_toggle.dart';
+import '../widgets/reader_bottom_controls.dart';
 
 class ReaderScreen extends ConsumerStatefulWidget {
   final String novelId;
@@ -22,7 +24,6 @@ class ReaderScreen extends ConsumerStatefulWidget {
 
 class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   final ScrollController _scrollController = ScrollController();
-  bool _showSettings = false;
   Novel? _novel;
   final _manualUrlController = TextEditingController();
 
@@ -41,13 +42,15 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   Future<void> _loadNovelAndTranslate() async {
     final novel = await DatabaseService.getNovel(widget.novelId);
-    if (novel == null) return;
+    if (novel == null || !mounted) return;
 
     setState(() => _novel = novel);
 
     // Check if chapter already translated
     final existingChapter = await DatabaseService.getChapterByUrl(
         novel.id, novel.currentChapterUrl);
+
+    if (!mounted) return;
 
     if (existingChapter != null && existingChapter.translatedText != null) {
       ref.read(readerProvider.notifier).loadChapter(existingChapter);
@@ -63,20 +66,29 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   }
 
   Future<void> _startTranslation(String url) async {
-    if (_novel == null) return;
+    if (_novel == null || !mounted) return;
 
     final keys = ref.read(apiKeyProvider);
-    final apiKey = keys[_novel!.selectedProvider];
+    String? apiKey = keys[_novel!.selectedProvider];
+    
+    if (apiKey == null || apiKey.isEmpty) {
+      // The state might not have loaded asynchronously yet, try secure storage directly
+      apiKey = await const FlutterSecureStorage()
+          .read(key: 'api_key_${_novel!.selectedProvider}');
+    }
+
+    if (!mounted) return;
+
     if (apiKey == null || apiKey.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
               '${_novel!.selectedProvider.toUpperCase()} API key not found. Go to Settings → API Keys.'),
           behavior: SnackBarBehavior.floating,
-          action: SnackBarAction(
-            label: 'Settings',
-            onPressed: () => context.push('/settings'),
-          ),
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: () => context.push('/settings'),
+            ),
         ),
       );
       return;
@@ -85,16 +97,24 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     final glossary =
         ref.read(glossaryProvider(widget.novelId)).valueOrNull ?? [];
 
+    String activeModel = _novel!.selectedModel;
+    final allowedModels = ProviderModels.models[_novel!.selectedProvider] ?? [];
+    if (!allowedModels.contains(activeModel) && allowedModels.isNotEmpty) {
+      activeModel = allowedModels.first;
+    }
+
     await ref.read(readerProvider.notifier).translateChapter(
           url: url,
           novelId: widget.novelId,
           provider: _novel!.selectedProvider,
-          model: _novel!.selectedModel,
+          model: activeModel,
           apiKey: apiKey,
           glossary: glossary,
           novelContext: _novel!.title,
           chapterNumber: _novel!.totalChaptersTranslated + 1,
         );
+
+    if (!mounted) return;
 
     // Update novel's chapter count and last read
     if (ref.read(readerProvider).currentChapter != null) {
@@ -107,7 +127,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       );
       await DatabaseService.updateNovel(updatedNovel);
       ref.read(novelListProvider.notifier).loadNovels();
-      setState(() => _novel = updatedNovel);
+      if (mounted) setState(() => _novel = updatedNovel);
     }
   }
 
@@ -121,131 +141,56 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
     return Scaffold(
       backgroundColor: bgColor,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
+          onPressed: () => context.pop(),
+        ),
+        title: Text(
+          _novel?.title ?? 'Loading...',
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.onSurface,
+            fontSize: 14,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
       body: SafeArea(
-        child: Column(
-          children: [
-            // ─── Top Bar ───
-            _buildTopBar(theme, readerState),
-
-            // ─── Settings Panel ───
-            if (_showSettings) _buildSettingsPanel(theme, readingTheme, fontSettings),
-
-            // ─── Main Content ───
-            Expanded(
-              child: _buildContent(
-                  theme, readerState, readingTheme, fontSettings),
-            ),
-
-            // ─── Bottom Navigation ───
-            _buildBottomBar(theme, readerState),
-          ],
+        child: GestureDetector(
+          onTap: () {
+            if (readerState.currentChapter != null) {
+              _showControlsBottomSheet(context, readerState);
+            }
+          },
+          child: _buildContent(theme, readerState, readingTheme, fontSettings),
         ),
+      ),
+      bottomNavigationBar: readerState.currentChapter != null
+          ? _buildBottomBar(theme, readerState)
+          : null,
+    );
+  }
+
+  void _showControlsBottomSheet(BuildContext context, ReaderState state) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ReaderBottomControls(
+        novel: _novel,
+        onNextChapter: _handleNextChapter,
+        onPrevChapter: () {}, // placeholder
+        currentText: state.showOriginal
+            ? (state.currentChapter?.originalText ?? '')
+            : (state.currentChapter?.translatedText ?? ''),
+        isBottomSheet: true,
       ),
     );
   }
 
-  Widget _buildTopBar(ThemeData theme, ReaderState state) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.95),
-        border: Border(
-          bottom: BorderSide(color: theme.colorScheme.outline.withOpacity(0.2)),
-        ),
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, size: 20),
-            onPressed: () => context.pop(),
-          ),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _novel?.title ?? 'Loading...',
-                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (state.currentChapter?.title != null)
-                  Text(
-                    state.currentChapter!.title!,
-                    style: theme.textTheme.labelMedium?.copyWith(fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              _showSettings ? Icons.close : Icons.tune,
-              size: 20,
-            ),
-            onPressed: () => setState(() => _showSettings = !_showSettings),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsPanel(
-      ThemeData theme, ReadingTheme readingTheme, FontSettings fontSettings) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-              color: theme.colorScheme.outline.withOpacity(0.2)),
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Text('Theme: '),
-              const SizedBox(width: 8),
-              ReadingThemeToggle(
-                currentTheme: readingTheme,
-                onChanged: (t) =>
-                    ref.read(themeProvider.notifier).setTheme(t),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.text_fields, size: 18),
-              const SizedBox(width: 8),
-              Text('${fontSettings.fontSize.round()}px'),
-              Expanded(
-                child: Slider(
-                  value: fontSettings.fontSize,
-                  min: 14,
-                  max: 22,
-                  divisions: 8,
-                  onChanged: (v) =>
-                      ref.read(fontSettingsProvider.notifier).setFontSize(v),
-                ),
-              ),
-              TextButton(
-                onPressed: () {
-                  final current = fontSettings.useSerif;
-                  ref
-                      .read(fontSettingsProvider.notifier)
-                      .setUseSerif(!current);
-                },
-                child: Text(fontSettings.useSerif ? 'Serif' : 'Sans'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildContent(ThemeData theme, ReaderState state,
       ReadingTheme readingTheme, FontSettings fontSettings) {
@@ -403,73 +348,6 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     );
   }
 
-  Widget _buildBottomBar(ThemeData theme, ReaderState state) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface.withOpacity(0.95),
-        border: Border(
-          top: BorderSide(
-              color: theme.colorScheme.outline.withOpacity(0.2)),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          // Previous (placeholder — would need chapter history)
-          const _BottomBarButton(
-            icon: Icons.arrow_back_ios_rounded,
-            label: 'Prev',
-            onTap: null, // TODO: implement prev chapter
-          ),
-
-          // Toggle original
-          _BottomBarButton(
-            icon: state.showOriginal ? Icons.translate : Icons.language,
-            label: state.showOriginal ? 'Translated' : 'Original',
-            onTap: () =>
-                ref.read(readerProvider.notifier).toggleOriginal(),
-          ),
-
-          // Glossary
-          _BottomBarButton(
-            icon: Icons.book_outlined,
-            label: 'Glossary',
-            onTap: () => context.push('/novel/${widget.novelId}/glossary'),
-          ),
-
-          // Retry translation
-          _BottomBarButton(
-            icon: Icons.refresh,
-            label: 'Re-translate',
-            onTap: state.isTranslating
-                ? null
-                : () {
-                    if (_novel != null) {
-                      _startTranslation(_novel!.currentChapterUrl);
-                    }
-                  },
-          ),
-
-          // Next chapter
-          _BottomBarButton(
-            icon: Icons.arrow_forward_ios_rounded,
-            label: 'Next',
-            isHighlighted: true,
-            onTap: state.isTranslating ? null : _handleNextChapter,
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _handleNextChapter() async {
     if (_novel == null) return;
 
@@ -598,6 +476,64 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               Navigator.pop(ctx);
             },
             child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(ThemeData theme, ReaderState state) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface.withValues(alpha: 0.95),
+        border: Border(
+          top: BorderSide(
+              color: theme.colorScheme.outline.withValues(alpha: 0.2)),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          const _BottomBarButton(
+            icon: Icons.arrow_back_ios_rounded,
+            label: 'Prev',
+            onTap: null, // placeholder
+          ),
+          _BottomBarButton(
+            icon: state.showOriginal ? Icons.translate : Icons.language,
+            label: state.showOriginal ? 'Translated' : 'Original',
+            onTap: () =>
+                ref.read(readerProvider.notifier).toggleOriginal(),
+          ),
+          _BottomBarButton(
+            icon: Icons.book_outlined,
+            label: 'Glossary',
+            onTap: () => context.push('/novel/${widget.novelId}/glossary'),
+          ),
+          _BottomBarButton(
+            icon: Icons.refresh,
+            label: 'Re-translate',
+            onTap: state.isTranslating
+                ? null
+                : () {
+                    if (_novel != null) {
+                      _startTranslation(_novel!.currentChapterUrl);
+                    }
+                  },
+          ),
+          _BottomBarButton(
+            icon: Icons.arrow_forward_ios_rounded,
+            label: 'Next',
+            isHighlighted: true,
+            onTap: state.isTranslating ? null : _handleNextChapter,
           ),
         ],
       ),

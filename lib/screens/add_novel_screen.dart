@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants.dart';
 import '../core/theme.dart';
 import '../models/novel.dart';
@@ -37,13 +38,19 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
 
-    // Load defaults
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final defaults = ref.read(defaultModelProvider);
-      setState(() {
-        _selectedProvider = defaults.provider;
-        _selectedModel = defaults.model;
-      });
+    // Load defaults asynchronously from SharedPreferences directly to ensure we get the latest saved values
+    // instead of racing with the defaultModelProvider's async initialization.
+    _loadDefaults();
+  }
+
+  Future<void> _loadDefaults() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _selectedProvider = prefs.getString('default_provider') ?? AppDefaults.defaultProvider;
+      final models = ProviderModels.models[_selectedProvider] ?? [];
+      final savedModel = prefs.getString('default_model') ?? AppDefaults.defaultModel;
+      _selectedModel = models.contains(savedModel) ? savedModel : (models.isNotEmpty ? models.first : _selectedModel);
     });
   }
 
@@ -63,10 +70,6 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
 
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
-        ),
         title: const Text('Add Novel'),
         bottom: TabBar(
           controller: _tabController,

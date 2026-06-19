@@ -29,13 +29,17 @@ class ApiKeyNotifier extends StateNotifier<Map<String, String?>> {
   Future<void> setApiKey(String provider, String key) async {
     final storageKey = SecureStorageKeys.keyForProvider(provider);
     await _storage.write(key: storageKey, value: key);
-    state = {...state, provider: key};
+    final updated = Map<String, String?>.from(state);
+    updated[provider] = key;
+    state = updated;
   }
 
   Future<void> removeApiKey(String provider) async {
     final storageKey = SecureStorageKeys.keyForProvider(provider);
     await _storage.delete(key: storageKey);
-    state = {...state, provider: null};
+    final updated = Map<String, String?>.from(state);
+    updated[provider] = null;
+    state = updated;
   }
 
   String? getApiKey(String provider) => state[provider];
