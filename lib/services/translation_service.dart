@@ -21,11 +21,12 @@ class TranslationService {
     required List<GlossaryEntry> glossary,
     String? novelContext,
     int chapterNumber = 0,
+    bool forceRetranslate = false,
     ProgressCallback? onProgress,
   }) async {
     // Check if already translated
     final existing = await DatabaseService.getChapterByUrl(novelId, url);
-    if (existing != null && existing.translatedText != null) {
+    if (!forceRetranslate && existing != null && existing.translatedText != null) {
       return existing;
     }
 
@@ -148,7 +149,7 @@ class TranslationService {
       return [text];
     }
 
-    final paragraphs = text.split('\n\n');
+    final paragraphs = text.split(RegExp(r'\r?\n+'));
     final chunks = <String>[];
     var currentChunk = StringBuffer();
 
@@ -160,9 +161,15 @@ class TranslationService {
           currentChunk = StringBuffer();
         }
 
-        // If a single paragraph exceeds chunk size, add it as its own chunk
+        // If a single paragraph exceeds chunk size, split it forcefully
         if (para.length > AppDefaults.maxChunkCharacters) {
-          chunks.add(para);
+          int start = 0;
+          while (start < para.length) {
+            int end = start + AppDefaults.maxChunkCharacters;
+            if (end > para.length) end = para.length;
+            chunks.add(para.substring(start, end));
+            start = end;
+          }
           continue;
         }
       }
@@ -187,7 +194,8 @@ class TranslationService {
     final lines = glossaryText.split('\n');
 
     for (final line in lines) {
-      final trimmed = line.trim();
+      // Strip leading bullets, numbers, or dashes
+      final trimmed = line.replaceAll(RegExp(r'^[\-\*\•\d\.]+\s*'), '').trim();
       if (trimmed.isEmpty) continue;
 
       // Match patterns: "Original → Translation" or "Original -> Translation"

@@ -58,6 +58,7 @@ class ReaderNotifier extends StateNotifier<ReaderState> {
     required List<GlossaryEntry> glossary,
     String? novelContext,
     int chapterNumber = 0,
+    bool forceRetranslate = false,
   }) async {
     state = state.copyWith(
       isTranslating: true,
@@ -75,6 +76,7 @@ class ReaderNotifier extends StateNotifier<ReaderState> {
         glossary: glossary,
         novelContext: novelContext,
         chapterNumber: chapterNumber,
+        forceRetranslate: forceRetranslate,
         onProgress: (current, total, msg) {
           state = state.copyWith(
             currentChunk: current,

@@ -270,20 +270,16 @@ class AIProviderService {
     String translatedText = content;
     String? glossarySection;
 
-    // Look for "New Glossary:" section at the end
-    final glossaryPatterns = [
-      RegExp(r'\n\s*New Glossary:\s*\n', caseSensitive: false),
-      RegExp(r'\n\s*\*\*New Glossary\*\*:?\s*\n', caseSensitive: false),
-      RegExp(r'\n\s*## New Glossary\s*\n', caseSensitive: false),
-    ];
+    // Look for "New Glossary:" section at the end, finding the LAST match
+    final glossaryPattern = RegExp(
+        r'\n\s*(?:\*\*|##\s*)?New Glossary(?:\*\*|:)?\s*\n',
+        caseSensitive: false);
 
-    for (final pattern in glossaryPatterns) {
-      final match = pattern.firstMatch(content);
-      if (match != null) {
-        translatedText = content.substring(0, match.start).trim();
-        glossarySection = content.substring(match.end).trim();
-        break;
-      }
+    final matches = glossaryPattern.allMatches(content);
+    if (matches.isNotEmpty) {
+      final match = matches.last;
+      translatedText = content.substring(0, match.start).trim();
+      glossarySection = content.substring(match.end).trim();
     }
 
     return TranslationResult(

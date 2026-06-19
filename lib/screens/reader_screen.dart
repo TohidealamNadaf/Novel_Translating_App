@@ -65,7 +65,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     _startTranslation(novel.currentChapterUrl);
   }
 
-  Future<void> _startTranslation(String url) async {
+  Future<void> _startTranslation(String url, {bool forceRetranslate = false}) async {
     if (_novel == null || !mounted) return;
 
     final keys = ref.read(apiKeyProvider);
@@ -112,6 +112,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           glossary: glossary,
           novelContext: _novel!.title,
           chapterNumber: _novel!.totalChaptersTranslated + 1,
+          forceRetranslate: forceRetranslate,
         );
 
     if (!mounted) return;
@@ -525,7 +526,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 ? null
                 : () {
                     if (_novel != null) {
-                      _startTranslation(_novel!.currentChapterUrl);
+                      _startTranslation(_novel!.currentChapterUrl, forceRetranslate: true);
                     }
                   },
           ),
