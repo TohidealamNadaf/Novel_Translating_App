@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -132,16 +133,7 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
           ),
           const SizedBox(height: 24),
 
-          // Model selector
-          ModelSelectorWidget(
-            selectedProvider: _selectedProvider,
-            selectedModel: _selectedModel,
-            onProviderChanged: (p) => setState(() {
-              _selectedProvider = p;
-              _selectedModel = ProviderModels.models[p]!.first;
-            }),
-            onModelChanged: (m) => setState(() => _selectedModel = m),
-          ),
+
           const SizedBox(height: 24),
 
           // Fetch button
@@ -356,8 +348,22 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
     String? apiKey = keys[_selectedProvider];
 
     if (apiKey == null || apiKey.isEmpty) {
-      apiKey = await const FlutterSecureStorage()
+      apiKey = await FlutterSecureStorage()
           .read(key: SecureStorageKeys.keyForProvider(_selectedProvider));
+    }
+
+    if (apiKey == null || apiKey.isEmpty) {
+      // Fallback to any provider that has a key
+      for (final provider in ProviderModels.models.keys) {
+        final fallbackKey = await FlutterSecureStorage()
+            .read(key: SecureStorageKeys.keyForProvider(provider));
+        if (fallbackKey != null && fallbackKey.isNotEmpty) {
+          _selectedProvider = provider;
+          _selectedModel = ProviderModels.models[provider]!.first;
+          apiKey = fallbackKey;
+          break;
+        }
+      }
     }
 
     if (!mounted) return;

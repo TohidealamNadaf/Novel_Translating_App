@@ -13,7 +13,6 @@ class ApiEndpoints {
 
 class ProviderModels {
   static const Map<String, List<String>> models = {
-    'openai': ['gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
     'gemini': [
       'gemini-2.5-flash',
       'gemini-2.0-flash',
@@ -32,7 +31,6 @@ class ProviderModels {
   };
 
   static const Map<String, String> providerNames = {
-    'openai': 'OpenAI',
     'gemini': 'Google Gemini',
     'mistral': 'Mistral AI',
     'deepseek': 'DeepSeek',
@@ -42,8 +40,8 @@ class ProviderModels {
 }
 
 class AppDefaults {
-  static const String defaultProvider = 'openai';
-  static const String defaultModel = 'gpt-4o';
+  static const String defaultProvider = 'gemini';
+  static const String defaultModel = 'gemini-2.5-flash';
   static const String defaultTargetLanguage = 'English';
   static const int maxChunkCharacters = 4000; // ~4000 tokens for CJK, yields ~8000 output tokens
   static const int maxRetries = 3;

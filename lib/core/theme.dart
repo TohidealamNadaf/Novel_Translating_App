@@ -82,14 +82,6 @@ class AppTheme {
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ),
-      cardTheme: const CardTheme(
-        color: darkCard,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
-          side: BorderSide(color: darkBorder, width: 1),
-        ),
-      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: darkSurface,
@@ -170,14 +162,6 @@ class AppTheme {
         indicatorColor: brandPrimary.withOpacity(0.3),
         labelTextStyle: WidgetStateProperty.all(
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-      ),
-      cardTheme: const CardTheme(
-        color: oledCard,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
-          side: BorderSide(color: oledBorder, width: 1),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -262,14 +246,6 @@ class AppTheme {
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
         ),
       ),
-      cardTheme: const CardTheme(
-        color: sepiaCard,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
-          side: BorderSide(color: sepiaBorder, width: 1),
-        ),
-      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: sepiaSurface,
@@ -347,14 +323,6 @@ class AppTheme {
         indicatorColor: brandPrimary.withOpacity(0.15),
         labelTextStyle: WidgetStateProperty.all(
           const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-      ),
-      cardTheme: const CardTheme(
-        color: lightCard,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
-          side: BorderSide(color: lightBorder, width: 1),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
