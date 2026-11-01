@@ -28,7 +28,7 @@ class LibraryScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [AppTheme.brandPrimary, AppTheme.brandSecondary],
@@ -59,7 +59,7 @@ class LibraryScreen extends ConsumerWidget {
               child: Center(
                 child: SingleChildScrollView(
                   child: Padding(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: const EdgeInsets.all(16),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -87,7 +87,7 @@ class LibraryScreen extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             color: AppTheme.brandPrimary.withOpacity(0.1),
                             shape: BoxShape.circle,
@@ -98,7 +98,7 @@ class LibraryScreen extends ConsumerWidget {
                             color: AppTheme.brandPrimary,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         Text(
                           'Your library is empty',
                           style: theme.textTheme.headlineMedium,
@@ -108,7 +108,7 @@ class LibraryScreen extends ConsumerWidget {
                           'Add your first novel to get started',
                           style: theme.textTheme.bodyMedium,
                         ),
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 16),
                         ElevatedButton.icon(
                           onPressed: () => context.push('/add'),
                           icon: const Icon(Icons.add),

@@ -58,7 +58,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         title: const Text('Settings'),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         children: [
           // ─── API Keys ───
           const _SectionHeader(
@@ -212,7 +212,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ref.read(fontSettingsProvider.notifier).setUseSerif(v),
           ),
 
-          const SizedBox(height: 40),
+          const SizedBox(height: 24),
 
           // ─── About ───
           Center(
@@ -240,7 +240,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 24),
         ],
       ),
     );

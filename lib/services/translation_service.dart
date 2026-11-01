@@ -17,7 +17,7 @@ class TranslationService {
     required String novelId,
     required String provider,
     required String model,
-    required String apiKey,
+    required Map<String, String?> apiKeys,
     required List<GlossaryEntry> glossary,
     String? novelContext,
     int chapterNumber = 0,
@@ -40,7 +40,7 @@ class TranslationService {
       text: scraped.content,
       provider: provider,
       model: model,
-      apiKey: apiKey,
+      apiKeys: apiKeys,
       glossary: glossary,
       novelContext: novelContext,
       onProgress: onProgress,
@@ -80,7 +80,7 @@ class TranslationService {
     required String text,
     required String provider,
     required String model,
-    required String apiKey,
+    required Map<String, String?> apiKeys,
     required List<GlossaryEntry> glossary,
     String? novelContext,
     ProgressCallback? onProgress,
@@ -101,12 +101,15 @@ class TranslationService {
 
     if (totalChunks == 1) {
       onProgress?.call(1, 1, 'Translating...');
-      return await AIProviderService.translateChunk(
+      return await _translateChunkWithFallback(
         text: chunks[0],
-        provider: provider,
-        model: model,
-        apiKey: apiKey,
+        primaryProvider: provider,
+        primaryModel: model,
+        apiKeys: apiKeys,
         systemPrompt: systemPrompt,
+        onProgress: onProgress,
+        currentChunk: 1,
+        totalChunks: 1,
       );
     }
 
@@ -117,12 +120,15 @@ class TranslationService {
     for (int i = 0; i < totalChunks; i++) {
       onProgress?.call(i + 1, totalChunks, 'Translating chunk ${i + 1}/$totalChunks...');
 
-      final result = await AIProviderService.translateChunk(
+      final result = await _translateChunkWithFallback(
         text: chunks[i],
-        provider: provider,
-        model: model,
-        apiKey: apiKey,
+        primaryProvider: provider,
+        primaryModel: model,
+        apiKeys: apiKeys,
         systemPrompt: systemPrompt,
+        onProgress: onProgress,
+        currentChunk: i + 1,
+        totalChunks: totalChunks,
       );
 
       translatedParts.add(result.translatedText);
@@ -141,6 +147,68 @@ class TranslationService {
       translatedText: translatedParts.join('\n\n'),
       newGlossarySection: lastGlossary?.trim(),
     );
+  }
+
+  static Future<TranslationResult> _translateChunkWithFallback({
+    required String text,
+    required String primaryProvider,
+    required String primaryModel,
+    required Map<String, String?> apiKeys,
+    required String systemPrompt,
+    ProgressCallback? onProgress,
+    int currentChunk = 1,
+    int totalChunks = 1,
+  }) async {
+    // 1. Try primary provider
+    final primaryKey = apiKeys[primaryProvider];
+    if (primaryKey != null && primaryKey.isNotEmpty) {
+      try {
+        return await AIProviderService.translateChunk(
+          text: text,
+          provider: primaryProvider,
+          model: primaryModel,
+          apiKey: primaryKey,
+          systemPrompt: systemPrompt,
+        );
+      } catch (e) {
+        final errorStr = e.toString().toLowerCase();
+        if (!errorStr.contains('429') && !errorStr.contains('quota') && !errorStr.contains('402') && !errorStr.contains('rate')) {
+          rethrow;
+        }
+        // It's a quota error, fall through to fallback loop
+      }
+    }
+
+    // 2. Fallback loop
+    final fallbackProviders = ['gemini', 'mistral', 'deepseek', 'openrouter', 'grok'];
+    for (final p in fallbackProviders) {
+      if (p == primaryProvider) continue;
+      final key = apiKeys[p];
+      if (key == null || key.isEmpty) continue;
+
+      final fallbackModel = ProviderModels.models[p]?.first;
+      if (fallbackModel == null) continue;
+
+      onProgress?.call(currentChunk, totalChunks, 'Falling back to ${ProviderModels.providerNames[p] ?? p}...');
+
+      try {
+        return await AIProviderService.translateChunk(
+          text: text,
+          provider: p,
+          model: fallbackModel,
+          apiKey: key,
+          systemPrompt: systemPrompt,
+        );
+      } catch (e) {
+        final errorStr = e.toString().toLowerCase();
+        if (errorStr.contains('429') || errorStr.contains('quota') || errorStr.contains('402') || errorStr.contains('rate')) {
+          continue; // try next provider
+        }
+        rethrow; 
+      }
+    }
+
+    throw Exception('All available providers failed due to quota/rate limits. Please check your API keys and billing.');
   }
 
   /// Chunk text by paragraphs, respecting max chunk size

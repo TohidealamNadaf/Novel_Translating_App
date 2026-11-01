@@ -259,7 +259,7 @@ class ChapterScraperService {
         return ScrapedChapter(
           title: title,
           content: content,
-          nextChapterUrl: _detectNextUrl(document, uri, profile),
+          nextChapterUrl: _detect8bookNextUrl(html, uri) ?? _detectNextUrl(document, uri, profile),
           detectedLanguage: detectLanguage(content),
         );
       }
@@ -566,6 +566,42 @@ class ChapterScraperService {
       return nextUri.toString();
     } catch (_) {
       return nextUrl;
+    }
+  }
+
+  // 8book specific: detect next chapter URL from JavaScript chapter list
+  static String? _detect8bookNextUrl(String html, Uri currentUri) {
+    try {
+      // Extract current chapter ID from URL query (e.g., ?13877674)
+      String currentChapterId = '';
+      if (currentUri.query.isNotEmpty && RegExp(r'\d+').hasMatch(currentUri.query)) {
+        currentChapterId = RegExp(r'\d+').firstMatch(currentUri.query)!.group(0)!;
+      }
+      if (currentChapterId.isEmpty) return null;
+
+      // Find the chapter list in the JavaScript: var f0449h_66="13877673,13877674,...".split(',');
+      // The variable name is obfuscated, so match any var assignment with a long comma-separated list of numbers
+      final chapterListMatch = RegExp(
+        r'''["'](\d{5,}(?:,\d{5,})+)["']\.split\('''
+      ).firstMatch(html);
+
+      if (chapterListMatch == null) return null;
+
+      final allChapterIds = chapterListMatch.group(1)!.split(',');
+      final currentIndex = allChapterIds.indexOf(currentChapterId);
+
+      if (currentIndex == -1 || currentIndex >= allChapterIds.length - 1) {
+        return null; // Not found or already last chapter
+      }
+
+      final nextChapterId = allChapterIds[currentIndex + 1];
+
+      // Construct the next chapter URL using the same base path
+      // Pattern: https://sport.thepaperbooks.com/read/297656/?13877675
+      final basePath = currentUri.path;
+      return '${currentUri.scheme}://${currentUri.host}$basePath?$nextChapterId';
+    } catch (e) {
+      return null;
     }
   }
 

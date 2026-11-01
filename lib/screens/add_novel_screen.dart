@@ -95,7 +95,7 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
 
   Widget _buildUrlTab(ThemeData theme) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -132,10 +132,10 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
             ),
             keyboardType: TextInputType.url,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // Fetch button
           SizedBox(
@@ -183,7 +183,7 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
 
           // Preview
           if (_previewText != null) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Row(
               children: [
                 if (_detectedLanguage != null) ...[
@@ -236,7 +236,7 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
 
   Widget _buildTextTab(ThemeData theme) {
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -280,7 +280,7 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
             maxLines: 12,
             minLines: 8,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           // Model selector
           ModelSelectorWidget(
@@ -292,7 +292,7 @@ class _AddNovelScreenState extends ConsumerState<AddNovelScreen>
             }),
             onModelChanged: (m) => setState(() => _selectedModel = m),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
 
           SizedBox(
             height: 52,

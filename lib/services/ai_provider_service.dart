@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../core/constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Supported AI providers
 enum AIProvider { openai, gemini, mistral, deepseek }
@@ -16,6 +17,41 @@ class TranslationResult {
     this.newGlossarySection,
     this.tokensUsed = 0,
   });
+}
+
+class AiTranslationResult {
+  final String text;
+  final int promptTokens;
+  final int candidateTokens;
+
+  AiTranslationResult({
+    required this.text,
+    required this.promptTokens,
+    required this.candidateTokens,
+  });
+}
+
+class SummaryResult {
+  final String extractive;
+  final List<String> events;
+  final List<Map<String, dynamic>> structuredOverview;
+
+  SummaryResult({
+    required this.extractive,
+    required this.events,
+    required this.structuredOverview,
+  });
+
+  factory SummaryResult.fromJson(Map<String, dynamic> json) {
+    return SummaryResult(
+      extractive: json['extractive'] as String? ?? 'Unable to extract summary.',
+      events: (json['events'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      structuredOverview: (json['structuredOverview'] as List<dynamic>?)
+              ?.map((e) => e as Map<String, dynamic>)
+              .toList() ??
+          [],
+    );
+  }
 }
 
 class AIProviderService {
@@ -184,10 +220,17 @@ class AIProviderService {
       final shouldFallback = errStr.contains('404') ||
           errStr.contains('not found') ||
           errStr.contains('503') ||
+          errStr.contains('429') ||
+          errStr.contains('quota') ||
+          errStr.contains('rate') ||
           errStr.contains('high demand') ||
           errStr.contains('overloaded');
 
       if (shouldFallback) {
+        // On rate limit, wait a bit before trying fallback models
+        if (errStr.contains('429') || errStr.contains('quota') || errStr.contains('rate')) {
+          await Future.delayed(const Duration(seconds: 5));
+        }
         for (final fallbackModel in allModels) {
           if (fallbackModel == model) continue;
           try {
@@ -294,8 +337,11 @@ class AIProviderService {
 
         if (response.statusCode == 429 || response.statusCode >= 500) {
           if (attempt < AppDefaults.maxRetries - 1) {
-            final delay = AppDefaults.retryBaseDelay * (1 << attempt);
-            await Future.delayed(delay);
+            // Wait longer for rate limits (429) than server errors (5xx)
+            final baseDelay = response.statusCode == 429
+                ? const Duration(seconds: 10)
+                : AppDefaults.retryBaseDelay;
+            await Future.delayed(baseDelay * (1 << attempt));
             continue;
           }
         }
@@ -314,6 +360,164 @@ class AIProviderService {
       }
     }
     throw Exception('Max retries exceeded');
+  }
+
+  /// Summarizes chapter content using JSON-mode
+  static Future<SummaryResult> summarizeChapter({
+    required String content,
+    String? title,
+    required String apiKey,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final providerName = prefs.getString('ai_provider') ?? 'gemini';
+    final customUrl = prefs.getString('ai_custom_url');
+    final customModel = prefs.getString('ai_custom_model');
+
+    final safeContent = content.length > 30000 ? content.substring(0, 30000) : content;
+
+    final systemInstruction = '''
+You are an expert novel summarizer.
+Analyze the following chapter content titled "${title ?? 'Unknown'}".
+Match the tone, mood, and atmosphere of the original text.
+Return a strict JSON object with THREE keys:
+1. "structuredOverview": An array of section objects representing the summary. Each object must have:
+   - "header": A thematic, descriptive title for the section.
+   - "intro": A short introductory paragraph for the section.
+   - "bullets": An array of strings providing a highly detailed, comprehensive breakdown of the events in this section.
+2. "extractive": A brief fallback paragraph summarizing the overall chapter.
+3. "events": An array of strings, where each string is a clear bullet point of a key action, revelation, or event that occurred in the chapter.
+
+Output ONLY valid JSON.
+''';
+
+    final prompt = 'Chapter Content:\n$safeContent';
+
+    if (providerName == 'gemini') {
+      // We'll try flash and lite models, similar to translation
+      final allModels = [
+        customModel ?? 'gemini-2.5-flash',
+        'gemini-2.0-flash-lite',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash',
+        'gemini-1.5-pro',
+      ];
+
+      Future<SummaryResult> attemptModel(String model) async {
+        final url = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1beta/models/$model:generateContent?key=$apiKey',
+        );
+
+        final Map<String, dynamic> body = {
+          'systemInstruction': {
+            'parts': [
+              {'text': systemInstruction}
+            ]
+          },
+          'contents': [
+            {
+              'parts': [
+                {'text': prompt}
+              ]
+            }
+          ],
+          'generationConfig': {
+            'temperature': 0.3,
+            'responseMimeType': 'application/json',
+          },
+          'safetySettings': [
+            {
+              'category': 'HARM_CATEGORY_HARASSMENT',
+              'threshold': 'BLOCK_ONLY_HIGH'
+            },
+            {
+              'category': 'HARM_CATEGORY_HATE_SPEECH',
+              'threshold': 'BLOCK_ONLY_HIGH'
+            },
+            {
+              'category': 'HARM_CATEGORY_SEXUALLY_EXPLICIT',
+              'threshold': 'BLOCK_ONLY_HIGH'
+            },
+            {
+              'category': 'HARM_CATEGORY_DANGEROUS_CONTENT',
+              'threshold': 'BLOCK_ONLY_HIGH'
+            }
+          ],
+        };
+
+        final response = await _postWithRetry(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        );
+
+        final data = jsonDecode(response.body);
+
+        if (response.statusCode != 200) {
+          throw Exception(
+            'Gemini error ${response.statusCode}: ${data['error']?['message'] ?? 'Unknown error'}',
+          );
+        }
+
+        final candidates = data['candidates'] as List?;
+        if (candidates == null || candidates.isEmpty) {
+          throw Exception('Gemini returned no candidates.');
+        }
+
+        final candidate = candidates[0] as Map<String, dynamic>;
+        final finishReason = candidate['finishReason'];
+
+        if (finishReason == 'SAFETY') {
+          throw Exception('Content blocked by safety filters.');
+        }
+
+        final contentMap = candidate['content'] as Map<String, dynamic>?;
+        final parts = contentMap?['parts'] as List?;
+        if (parts == null || parts.isEmpty) {
+          throw Exception('Gemini returned empty content.');
+        }
+
+        String rawJson = parts[0]['text'] as String? ?? '{}';
+        rawJson = rawJson.trim();
+        if (rawJson.startsWith('```json')) {
+          rawJson = rawJson.substring(7);
+          if (rawJson.endsWith('```')) {
+            rawJson = rawJson.substring(0, rawJson.length - 3);
+          }
+        }
+        
+        final parsed = jsonDecode(rawJson) as Map<String, dynamic>;
+        return SummaryResult.fromJson(parsed);
+      }
+
+      Object? firstError;
+      try {
+        return await attemptModel(allModels[0]);
+      } catch (e) {
+        firstError = e;
+        final errStr = e.toString().toLowerCase();
+        final shouldFallback = errStr.contains('404') ||
+            errStr.contains('429') ||
+            errStr.contains('quota') ||
+            errStr.contains('rate');
+
+        if (shouldFallback) {
+          if (errStr.contains('429') || errStr.contains('quota') || errStr.contains('rate')) {
+            await Future.delayed(const Duration(seconds: 5));
+          }
+          for (final fallbackModel in allModels.skip(1)) {
+            try {
+              return await attemptModel(fallbackModel);
+            } catch (e2) {
+              firstError = e2;
+              continue;
+            }
+          }
+        }
+        throw Exception('All models failed. Last error: $firstError');
+      }
+    }
+
+    throw Exception('Summarization currently only supported for Gemini API.');
   }
 
   /// Parse the AI response to separate translated text from "New Glossary" section

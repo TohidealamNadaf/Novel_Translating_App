@@ -9,6 +9,7 @@ import '../providers/novel_provider.dart';
 import '../providers/reader_provider.dart';
 import '../providers/glossary_provider.dart';
 import '../providers/settings_provider.dart';
+import '../services/ai_provider_service.dart';
 import '../services/database_service.dart';
 import '../widgets/chapter_text_widget.dart';
 import '../widgets/reader_bottom_controls.dart';
@@ -68,67 +69,99 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   Future<void> _startTranslation(String url, {bool forceRetranslate = false}) async {
     if (_novel == null || !mounted) return;
 
-    final keys = ref.read(apiKeyProvider);
-    String? apiKey = keys[_novel!.selectedProvider];
-    
-    if (apiKey == null || apiKey.isEmpty) {
-      // The state might not have loaded asynchronously yet, try secure storage directly
-      apiKey = await const FlutterSecureStorage()
-          .read(key: 'api_key_${_novel!.selectedProvider}');
-    }
+    try {
+      final apiKeys = <String, String?>{};
+      final keys = ref.read(apiKeyProvider);
+      
+      for (final provider in ProviderModels.models.keys) {
+        String? key = keys[provider];
+        if (key == null || key.isEmpty) {
+          try {
+            key = await const FlutterSecureStorage()
+                .read(key: 'api_key_$provider');
+          } catch (_) {}
+        }
+        apiKeys[provider] = key;
+      }
 
-    if (!mounted) return;
+      // Fallback: try any provider that has a key if primary doesn't
+      if (apiKeys[_novel!.selectedProvider] == null || apiKeys[_novel!.selectedProvider]!.isEmpty) {
+        final availableProvider = apiKeys.keys.firstWhere(
+            (p) => apiKeys[p] != null && apiKeys[p]!.isNotEmpty,
+            orElse: () => '');
+        
+        if (availableProvider.isNotEmpty) {
+           final models = ProviderModels.models[availableProvider] ?? [];
+           if (models.isNotEmpty) {
+             _novel = _novel!.copyWith(
+               selectedProvider: availableProvider,
+               selectedModel: models.first,
+             );
+           }
+        }
+      }
 
-    if (apiKey == null || apiKey.isEmpty) {
+      if (!mounted) return;
+
+      if (apiKeys[_novel!.selectedProvider] == null || apiKeys[_novel!.selectedProvider]!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('API key not found. Go to Settings → API Keys.'),
+            behavior: SnackBarBehavior.floating,
+              action: SnackBarAction(
+                label: 'Settings',
+                onPressed: () => context.push('/settings'),
+              ),
+          ),
+        );
+        return;
+      }
+
+      final glossary =
+          ref.read(glossaryProvider(widget.novelId)).valueOrNull ?? [];
+
+      String activeModel = _novel!.selectedModel;
+      final allowedModels = ProviderModels.models[_novel!.selectedProvider] ?? [];
+      if (!allowedModels.contains(activeModel) && allowedModels.isNotEmpty) {
+        activeModel = allowedModels.first;
+      }
+
+      await ref.read(readerProvider.notifier).translateChapter(
+            url: url,
+            novelId: widget.novelId,
+            provider: _novel!.selectedProvider,
+            model: activeModel,
+            apiKeys: apiKeys,
+            glossary: glossary,
+            novelContext: _novel!.title,
+            chapterNumber: _novel!.totalChaptersTranslated + 1,
+            forceRetranslate: forceRetranslate,
+          );
+
+      if (!mounted) return;
+
+      // Update novel's chapter count and last read
+      if (ref.read(readerProvider).currentChapter != null) {
+        final updatedNovel = _novel!.copyWith(
+          currentChapterUrl: url,
+          nextChapterUrl:
+              ref.read(readerProvider).currentChapter?.nextChapterUrl,
+          lastReadAt: DateTime.now(),
+          totalChaptersTranslated: _novel!.totalChaptersTranslated + 1,
+        );
+        await DatabaseService.updateNovel(updatedNovel);
+        ref.read(novelListProvider.notifier).loadNovels();
+        if (mounted) setState(() => _novel = updatedNovel);
+      }
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-              '${_novel!.selectedProvider.toUpperCase()} API key not found. Go to Settings → API Keys.'),
+          content: Text('Translation error: $e'),
           behavior: SnackBarBehavior.floating,
-            action: SnackBarAction(
-              label: 'Settings',
-              onPressed: () => context.push('/settings'),
-            ),
+          duration: const Duration(seconds: 5),
         ),
       );
-      return;
-    }
-
-    final glossary =
-        ref.read(glossaryProvider(widget.novelId)).valueOrNull ?? [];
-
-    String activeModel = _novel!.selectedModel;
-    final allowedModels = ProviderModels.models[_novel!.selectedProvider] ?? [];
-    if (!allowedModels.contains(activeModel) && allowedModels.isNotEmpty) {
-      activeModel = allowedModels.first;
-    }
-
-    await ref.read(readerProvider.notifier).translateChapter(
-          url: url,
-          novelId: widget.novelId,
-          provider: _novel!.selectedProvider,
-          model: activeModel,
-          apiKey: apiKey,
-          glossary: glossary,
-          novelContext: _novel!.title,
-          chapterNumber: _novel!.totalChaptersTranslated + 1,
-          forceRetranslate: forceRetranslate,
-        );
-
-    if (!mounted) return;
-
-    // Update novel's chapter count and last read
-    if (ref.read(readerProvider).currentChapter != null) {
-      final updatedNovel = _novel!.copyWith(
-        currentChapterUrl: url,
-        nextChapterUrl:
-            ref.read(readerProvider).currentChapter?.nextChapterUrl,
-        lastReadAt: DateTime.now(),
-        totalChaptersTranslated: _novel!.totalChaptersTranslated + 1,
-      );
-      await DatabaseService.updateNovel(updatedNovel);
-      ref.read(novelListProvider.notifier).loadNovels();
-      if (mounted) setState(() => _novel = updatedNovel);
     }
   }
 
@@ -206,7 +239,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               height: 48,
               child: CircularProgressIndicator(strokeWidth: 3),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Text(
               state.statusMessage,
               style: theme.textTheme.titleMedium,
@@ -236,7 +269,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     if (state.error != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -251,7 +284,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 style: theme.textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -293,7 +326,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
     return SingleChildScrollView(
       controller: _scrollController,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -303,7 +336,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
               chapter.title!,
               style: theme.textTheme.headlineMedium,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
           ],
 
           // Toggle indicator
@@ -357,50 +390,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
         _novel!.nextChapterUrl;
 
     if (nextUrl != null && nextUrl.isNotEmpty) {
-      // Confirm with user
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Next Chapter'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Next chapter detected:'),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Theme.of(ctx).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  nextUrl,
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text('Translate this chapter?'),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Translate'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed == true) {
-        _scrollController.jumpTo(0);
-        ref.read(readerProvider.notifier).clear();
-        _startTranslation(nextUrl);
-      }
+      // Auto-translate: scroll to top and start immediately
+      _scrollController.jumpTo(0);
+      ref.read(readerProvider.notifier).clear();
+      _startTranslation(nextUrl);
     } else {
       // No URL found — ask for manual input
       _showManualUrlDialog();
@@ -520,6 +513,57 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
             onTap: () => context.push('/novel/${widget.novelId}/glossary'),
           ),
           _BottomBarButton(
+            icon: Icons.auto_awesome,
+            label: 'Summarize',
+            onTap: state.currentChapter == null || state.isTranslating
+                ? null
+                : () async {
+                    final chapter = state.currentChapter!;
+                    final textToSummarize = state.showOriginal
+                        ? chapter.originalText
+                        : chapter.translatedText;
+                    if (textToSummarize != null && textToSummarize.isNotEmpty) {
+                      // Fetch API Key
+                      final keys = ref.read(apiKeyProvider);
+                      String? apiKey = keys[_novel?.selectedProvider ?? 'gemini'];
+                      if (apiKey == null || apiKey.isEmpty) {
+                        apiKey = await const FlutterSecureStorage().read(key: 'api_key_${_novel?.selectedProvider ?? 'gemini'}');
+                      }
+                      if (apiKey == null || apiKey.isEmpty) {
+                        for (final provider in ['gemini', 'openai', 'mistral', 'deepseek']) {
+                          final fallbackKey = await const FlutterSecureStorage().read(key: 'api_key_$provider');
+                          if (fallbackKey != null && fallbackKey.isNotEmpty) {
+                            apiKey = fallbackKey;
+                            break;
+                          }
+                        }
+                      }
+                      
+                      if (apiKey == null || apiKey.isEmpty) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('No API Key found for summarization.')),
+                          );
+                        }
+                        return;
+                      }
+
+                      if (context.mounted) {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (ctx) => _SummaryBottomSheet(
+                            chapterTitle: chapter.title ?? 'Chapter',
+                            content: textToSummarize,
+                            apiKey: apiKey!,
+                          ),
+                        );
+                      }
+                    }
+                  },
+          ),
+          _BottomBarButton(
             icon: Icons.refresh,
             label: 'Re-translate',
             onTap: state.isTranslating
@@ -589,6 +633,309 @@ class _BottomBarButton extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SummaryBottomSheet extends StatefulWidget {
+  final String chapterTitle;
+  final String content;
+  final String apiKey;
+
+  const _SummaryBottomSheet({
+    required this.chapterTitle,
+    required this.content,
+    required this.apiKey,
+  });
+
+  @override
+  State<_SummaryBottomSheet> createState() => _SummaryBottomSheetState();
+}
+
+class _SummaryBottomSheetState extends State<_SummaryBottomSheet> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  SummaryResult? _summaryResult;
+  String? _error;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _generateSummary();
+  }
+
+  Future<void> _generateSummary() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final result = await AIProviderService.summarizeChapter(
+        content: widget.content,
+        title: widget.chapterTitle,
+        apiKey: widget.apiKey,
+      );
+      if (mounted) {
+        setState(() {
+          _summaryResult = result;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final size = MediaQuery.of(context).size;
+
+    return Container(
+      height: size.height * 0.85,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        children: [
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.onSurface.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.auto_awesome, color: AppTheme.brandPrimary, size: 24),
+                    SizedBox(width: 8),
+                    Text(
+                      'AI Summary',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ),
+          
+          if (_isLoading)
+            const Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Analyzing chapter...'),
+                  ],
+                ),
+              ),
+            )
+          else if (_error != null)
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Failed to generate summary',
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: _generateSummary,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else if (_summaryResult != null)
+            Expanded(
+              child: Column(
+                children: [
+                  TabBar(
+                    controller: _tabController,
+                    labelColor: AppTheme.brandPrimary,
+                    unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                    indicatorColor: AppTheme.brandPrimary,
+                    tabs: const [
+                      Tab(text: 'Overview'),
+                      Tab(text: 'Key Events'),
+                    ],
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _buildOverviewTab(theme),
+                        _buildEventsTab(theme),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOverviewTab(ThemeData theme) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Extractive Summary
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.brandAccent.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.brandAccent.withOpacity(0.2)),
+          ),
+          child: Text(
+            _summaryResult!.extractive,
+            style: const TextStyle(
+              fontSize: 15,
+              height: 1.5,
+              color: AppTheme.brandAccent,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        
+        // Structured Overview Sections
+        ..._summaryResult!.structuredOverview.map((section) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  section['header'] ?? 'Section',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (section['intro'] != null && section['intro'].toString().isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      section['intro'],
+                      style: const TextStyle(fontSize: 15, height: 1.5),
+                    ),
+                  ),
+                if (section['bullets'] != null)
+                  ...(section['bullets'] as List).map((bullet) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8, left: 8),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('• ', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                            Expanded(
+                              child: Text(
+                                bullet.toString(),
+                                style: const TextStyle(fontSize: 15, height: 1.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildEventsTab(ThemeData theme) {
+    if (_summaryResult!.events.isEmpty) {
+      return const Center(child: Text('No events extracted.'));
+    }
+    
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: _summaryResult!.events.length,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 4, right: 12),
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppTheme.brandPrimary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '\${index + 1}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.brandPrimary,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  _summaryResult!.events[index],
+                  style: const TextStyle(fontSize: 15, height: 1.5),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

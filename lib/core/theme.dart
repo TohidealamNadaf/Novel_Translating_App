@@ -76,6 +76,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
       ),
       navigationBarTheme: NavigationBarThemeData(
+        height: 60,
         backgroundColor: darkSurface,
         indicatorColor: brandPrimary.withOpacity(0.3),
         labelTextStyle: WidgetStateProperty.all(
@@ -85,17 +86,17 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: darkSurface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: darkBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: darkBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: brandPrimary, width: 2),
         ),
       ),
@@ -103,9 +104,9 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: brandPrimary,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
           elevation: 0,
         ),
@@ -158,6 +159,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
       ),
       navigationBarTheme: NavigationBarThemeData(
+        height: 60,
         backgroundColor: oledSurface,
         indicatorColor: brandPrimary.withOpacity(0.3),
         labelTextStyle: WidgetStateProperty.all(
@@ -167,17 +169,17 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: oledSurface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: oledBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: oledBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: brandPrimary, width: 2),
         ),
       ),
@@ -185,9 +187,9 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: brandPrimary,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
           elevation: 0,
         ),
@@ -240,6 +242,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
       ),
       navigationBarTheme: NavigationBarThemeData(
+        height: 60,
         backgroundColor: sepiaSurface,
         indicatorColor: const Color(0xFF8B6914).withOpacity(0.2),
         labelTextStyle: WidgetStateProperty.all(
@@ -249,17 +252,17 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: sepiaSurface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: sepiaBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: sepiaBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFF8B6914), width: 2),
         ),
       ),
@@ -267,7 +270,7 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF8B6914),
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -319,6 +322,7 @@ class AppTheme {
         surfaceTintColor: Colors.transparent,
       ),
       navigationBarTheme: NavigationBarThemeData(
+        height: 60,
         backgroundColor: lightSurface,
         indicatorColor: brandPrimary.withOpacity(0.15),
         labelTextStyle: WidgetStateProperty.all(
@@ -328,17 +332,17 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: lightSurface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: lightBorder),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: lightBorder),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: brandPrimary, width: 2),
         ),
       ),
@@ -346,7 +350,7 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: brandPrimary,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -379,37 +383,37 @@ class AppTheme {
   static TextTheme _buildTextTheme(Color primary, Color secondary) {
     return TextTheme(
       displayLarge: GoogleFonts.outfit(
-        fontSize: 32,
+        fontSize: 28,
         fontWeight: FontWeight.w700,
         color: primary,
       ),
       displayMedium: GoogleFonts.outfit(
-        fontSize: 28,
-        fontWeight: FontWeight.w600,
-        color: primary,
-      ),
-      headlineLarge: GoogleFonts.outfit(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         color: primary,
       ),
-      headlineMedium: GoogleFonts.outfit(
-        fontSize: 20,
+      headlineLarge: GoogleFonts.outfit(
+        fontSize: 22,
         fontWeight: FontWeight.w600,
         color: primary,
       ),
-      titleLarge: GoogleFonts.outfit(
+      headlineMedium: GoogleFonts.outfit(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: primary,
       ),
-      titleMedium: GoogleFonts.outfit(
+      titleLarge: GoogleFonts.outfit(
         fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: primary,
+      ),
+      titleMedium: GoogleFonts.outfit(
+        fontSize: 14,
         fontWeight: FontWeight.w500,
         color: primary,
       ),
       bodyLarge: GoogleFonts.merriweather(
-        fontSize: 16,
+        fontSize: 15,
         fontWeight: FontWeight.w400,
         color: primary,
         height: 1.6,
